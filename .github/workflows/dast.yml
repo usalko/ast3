@@ -1,0 +1,30 @@
+name: Security — DAST (Nightly)
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # 02:00 UTC every night
+  workflow_dispatch:
+
+jobs:
+  zap:
+    name: OWASP ZAP Baseline Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start staging stack
+        run: docker compose -f infra/docker-compose.yml up -d --wait
+        env:
+          COMPOSE_FILE: infra/docker-compose.yml
+
+      - name: ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: 'http://localhost:8000/graphql/'
+          rules_file_name: '.github/zap-rules.tsv'
+          fail_action: true
+          artifact_name: zap-report
+
+      - name: Stop staging stack
+        if: always()
+        run: docker compose -f infra/docker-compose.yml down

@@ -1,0 +1,111 @@
+[tool.poetry]
+name = "ast3-backend"
+version = "0.1.0"
+description = "AST3 — Army Style Task & Time Tracking backend"
+authors = ["usalko"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+
+# Django core
+django = "^5.1"
+django-environ = "^0.11"
+django-cors-headers = "^4.4"
+django-filter = "^24.3"
+
+# Async server
+uvicorn = {extras = ["standard"], version = "^0.30"}
+daphne = "^4.1"
+
+# GraphQL
+strawberry-graphql = {extras = ["django"], version = "^0.243"}
+strawberry-graphql-django = "^0.48"
+
+# Auth
+djangorestframework-simplejwt = "^5.3"
+django-axes = "^7.0"
+
+# Database
+psycopg = {extras = ["binary"], version = "^3.2"}
+django-tree-queries = "^0.19"
+
+# Async / queue
+celery = {extras = ["redis"], version = "^5.4"}
+redis = "^5.1"
+django-celery-beat = "^2.7"
+django-celery-results = "^2.5"
+
+# Logging & observability
+structlog = "^24.4"
+django-structlog = "^8.1"
+prometheus-client = "^0.21"
+django-prometheus = "^2.3"
+
+# Security
+django-csp = "^3.8"
+cryptography = "^43.0"
+
+# Export
+openpyxl = "^3.1"
+
+# Utilities
+Pillow = "^11.0"
+python-magic = "^0.4"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3"
+pytest-django = "^4.9"
+pytest-cov = "^5.0"
+pytest-asyncio = "^0.24"
+factory-boy = "^3.3"
+faker = "^30.0"
+freezegun = "^1.5"
+ruff = "^0.7"
+mypy = "^1.12"
+django-stubs = {extras = ["compatible-mypy"], version = "^5.1"}
+bandit = "^1.8"
+pip-licenses = "^5.0"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "S", "B", "A", "C4", "DTZ", "T10", "ISC", "ICN", "Q", "RET", "SIM", "TID", "ARG", "PTH", "ERA", "PL", "RUF"]
+ignore = ["S101", "RUF012", "PLR0913", "A003"]
+
+[tool.ruff.lint.per-file-ignores]
+"*/tests/*" = ["S", "ARG", "PLR2004"]
+"*/migrations/*" = ["E501", "RUF012"]
+"*/settings/*" = ["S105"]
+
+[tool.mypy]
+python_version = "3.12"
+plugins = ["mypy_django_plugin.main"]
+strict = false
+ignore_missing_imports = true
+disallow_untyped_defs = true
+warn_return_any = true
+
+[tool.django-stubs]
+django_settings_module = "core.settings.dev"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "core.settings.test"
+python_files = ["test_*.py", "*_test.py"]
+addopts = "-v --tb=short"
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+source = ["."]
+omit = ["*/tests/*", "*/migrations/*", "manage.py", "*/settings/*", "*/__init__.py"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

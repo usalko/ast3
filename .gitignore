@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
+env/
+.env
+.env.*
+!.env.example
+*.pyo
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+bandit-report.json
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+
+# Node / React
+node_modules/
+client/dist/
+client/build/
+client/.parcel-cache/
+client/.next/
+*.tsbuildinfo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.idea/
+.vscode/settings.json
+*.swp
+*.swo
+*~
+
+# Docker
+infra/.env
+
+# Security — never commit secrets
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+
+# SBOM & reports (generated)
+sbom-*.json
+zap-report*.html
+bandit-report*.json

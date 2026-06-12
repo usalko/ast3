@@ -4,6 +4,7 @@ import { DragDropContext, Draggable, Droppable, type DropResult } from "@hello-p
 import { Card, Select, Tag, Space, Typography, Empty, Progress, Button, message, Spin } from "antd";
 import { Link } from "react-router-dom";
 import { gqlQuery } from "@/api/graphql";
+import { statusLabel } from "@/utils/statusLabels";
 
 type Project = { id: string; code?: string; name: string };
 type TaskStatus = { id: string; name: string; code: string; color?: string | null; isDone?: boolean };
@@ -177,7 +178,7 @@ export function KanbanPage() {
                         size="small"
                         title={
                           <Space>
-                            <Tag color={status.color ?? "default"}>{status.name}</Tag>
+                            <Tag color={status.color ?? "default"}>{statusLabel(status.code, status.name)}</Tag>
                             <Text type="secondary">{columnTasks.length}</Text>
                           </Space>
                         }

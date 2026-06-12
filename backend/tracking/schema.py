@@ -31,12 +31,20 @@ class TimeEntryType:
     description: auto
     is_locked: auto
     created_at: auto
-    user: UserType
+    user: UserType | None
     task: TaskType
 
     @strawberry.field
     def duration_hours(self, root: TimeEntry) -> float | None:
         return float(root.duration_minutes) / 60 if root.duration_minutes is not None else None
+
+
+@strawberry.type
+class ActiveTimerType:
+    id: strawberry.ID
+    start_time: datetime.datetime
+    duration_hours: float | None
+    task: TaskType
 
 
 @strawberry.type
@@ -52,12 +60,20 @@ class TrackingQuery:
             qs = qs.filter(task_id=task_id)
         return qs.select_related("task", "user", "user__department")
 
-    @strawberry_django.field
-    def active_timer(self, info: strawberry.types.Info) -> TimeEntryType | None:
-        return TimeEntry.objects.filter(
+    @strawberry.field
+    def active_timer(self, info: strawberry.types.Info) -> ActiveTimerType | None:
+        entry = TimeEntry.objects.filter(
             user=info.context.request.user,
             end_time__isnull=True,
-        ).select_related("task", "user", "user__department").first()
+        ).select_related("task", "task__status", "user", "user__department").first()
+        if not entry:
+            return None
+        return ActiveTimerType(
+            id=strawberry.ID(str(entry.id)),
+            start_time=entry.start_time,
+            duration_hours=entry.duration_hours,
+            task=entry.task,  # type: ignore[arg-type]
+        )
 
     @strawberry_django.field
     def time_entries(

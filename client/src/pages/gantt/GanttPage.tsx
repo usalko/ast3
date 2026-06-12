@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Button, Card, Progress, Space, Table, Typography, Empty, Spin } from "antd";
+import { Button, Card, Progress, Select, Space, Table, Typography, Empty, Spin } from "antd";
 import dayjs from "dayjs";
 import { gqlQuery } from "@/api/graphql";
 
 type Project = { id: string; code?: string; name: string; plannedStart?: string | null; plannedEnd?: string | null };
+type ProjectOption = { id: string; code?: string; name: string };
 type TaskStatus = { id: string; name: string; color?: string | null };
 type User = { id: string; fullName?: string | null };
 type Dependency = {
@@ -28,13 +29,25 @@ type Task = {
 const { Text } = Typography;
 
 export function GanttPage() {
-  const { projectId } = useParams<{ projectId: string }>();
+  const { projectId: projectIdFromUrl } = useParams<{ projectId: string }>();
+  const [projects, setProjects] = useState<ProjectOption[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState("");
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!projectId) return;
+    gqlQuery<{ projects: ProjectOption[] }>("query { projects { id code name } }")
+      .then((res) => {
+        const projectList = res.projects ?? [];
+        setProjects(projectList);
+        setSelectedProjectId((current) => projectIdFromUrl || current || projectList[0]?.id || "");
+      })
+      .catch(() => setProjects([]));
+  }, [projectIdFromUrl]);
+
+  useEffect(() => {
+    if (!selectedProjectId) return;
     setLoading(true);
     gqlQuery<{ project: Project; tasks: Task[] }>(
       `query ($projectId: ID!) {
@@ -45,7 +58,7 @@ export function GanttPage() {
           dependencies { id type predecessor { id code title } successor { id code title } }
         }
       }`,
-      { projectId }
+      { projectId: selectedProjectId }
     )
       .then((res) => {
         setProject(res.project ?? null);
@@ -56,7 +69,9 @@ export function GanttPage() {
         setTasks([]);
       })
       .finally(() => setLoading(false));
-  }, [projectId]);
+  }, [selectedProjectId]);
+
+  const selectedProject = project ?? projects.find((item) => item.id === selectedProjectId) ?? null;
 
   const timeline = useMemo(() => {
     const start = project?.plannedStart ? dayjs(project.plannedStart) : dayjs();
@@ -81,18 +96,33 @@ export function GanttPage() {
 
   return (
     <div style={{ padding: 16 }}>
-      <Space style={{ marginBottom: 16 }}>
-        <Link to={`/projects/${projectId}`}>
-          <Button>← Назад к проекту</Button>
-        </Link>
-        <Text strong>{project ? `${project.code ? `[${project.code}] ` : ""}${project.name}` : "Диаграмма Ганта"}</Text>
+      <Space style={{ marginBottom: 16 }} wrap>
+        {projectIdFromUrl ? (
+          <Link to={`/projects/${projectIdFromUrl}`}>
+            <Button>← Назад к проекту</Button>
+          </Link>
+        ) : null}
+        <Select
+          style={{ minWidth: 360 }}
+          value={selectedProjectId}
+          onChange={(value) => setSelectedProjectId(value as string)}
+          options={projects.map((item) => ({
+            label: `${item.code ? `[${item.code}] ` : ""}${item.name}`,
+            value: item.id,
+          }))}
+          placeholder="Выберите проект"
+        />
+        <Text strong>{selectedProject ? `${selectedProject.code ? `[${selectedProject.code}] ` : ""}${selectedProject.name}` : "Диаграмма Ганта"}</Text>
       </Space>
 
       <Spin spinning={loading}>
-        {!project ? (
-          <Empty description="Проект не найден" />
+        {!selectedProject ? (
+          <Empty description={projects.length === 0 ? "Нет проектов" : "Выберите проект для построения диаграммы"} />
         ) : (
           <Card title="Диаграмма Ганта">
+            <div style={{ marginLeft: 360, marginBottom: 6, position: "relative", height: 48 }}>
+              {renderTimelineScale(timeline.min, timeline.days)}
+            </div>
             <Table
               rowKey={(record) => record.task.id}
               dataSource={rows}
@@ -136,6 +166,71 @@ export function GanttPage() {
       </Spin>
     </div>
   );
+}
+
+function renderTimelineScale(min: dayjs.Dayjs, days: number) {
+  const monthNames = ["Янв", "Фев", "Мар", "Апр", "Май", "Июн", "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек"];
+  const max = min.add(days - 1, "day");
+  const today = dayjs();
+  const monthLabels: ReactNode[] = [];
+  const dayLabels: ReactNode[] = [];
+  let currentMonth = min.startOf("month");
+
+  while (currentMonth.isBefore(max.add(1, "day"))) {
+    const monthEnd = currentMonth.clone().endOf("month");
+    const segmentStart = currentMonth.isBefore(min) ? min : currentMonth;
+    const segmentEnd = monthEnd.isAfter(max) ? max : monthEnd;
+    const left = Math.max(0, (segmentStart.diff(min, "day") / Math.max(days, 1)) * 100);
+    const segmentDays = segmentEnd.diff(segmentStart, "day") + 1;
+    const width = Math.max(4, (segmentDays / Math.max(days, 1)) * 100);
+    monthLabels.push(
+      <div
+        key={`month-${currentMonth.format("YYYY-MM")}`}
+        style={{
+          position: "absolute",
+          left: `${left}%`,
+          top: 0,
+          width: `${width}%`,
+          textAlign: "center",
+          color: "#595959",
+          fontSize: 12,
+          borderLeft: "1px solid #f0f0f0",
+          lineHeight: "24px",
+        }}
+      >
+        {monthNames[currentMonth.month()]}
+      </div>
+    );
+    currentMonth = currentMonth.add(1, "month");
+  }
+
+  for (let index = 0; index < days; index += 1) {
+    const date = min.add(index, "day");
+    const isMonthStart = date.date() === 1;
+    const isWeekTick = index % 7 === 0;
+    const isToday = date.isSame(today, "day");
+    const isEdge = index === 0 || index === days - 1;
+    if (!isMonthStart && !isWeekTick && !isToday && !isEdge) continue;
+
+    const left = (index / Math.max(days, 1)) * 100;
+    dayLabels.push(
+      <div
+        key={`day-${date.format("YYYY-MM-DD")}`}
+        style={{
+          position: "absolute",
+          left: `${left}%`,
+          top: 24,
+          color: isToday ? "#1677ff" : "#8c8c8c",
+          fontSize: 11,
+          transform: "translateX(-50%)",
+        }}
+      >
+        {isToday ? "сегодня" : date.format("D")}
+      </div>
+    );
+  }
+
+  return [...monthLabels, ...dayLabels];
 }
 
 function renderTimelineBar(left: number, width: number, totalDays: number, task: Task) {

@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
 import { gqlQuery } from "@/api/graphql";
+import { statusLabel } from "@/utils/statusLabels";
 
 type Task = {
   id?: string;
@@ -120,7 +121,7 @@ export function TaskForm() {
             </Form.Item>
           )}
           <Form.Item name="statusId" label="Статус" rules={[{ required: true, message: "Выберите статус" }]}>
-            <Select placeholder="Выберите статус" options={statuses.map((s) => ({ label: s.name, value: s.id }))} />
+            <Select placeholder="Выберите статус" options={statuses.map((s) => ({ label: statusLabel(s.code, s.name), value: s.id }))} />
           </Form.Item>
           <Form.Item name="type" label="Тип задачи">
             <Select

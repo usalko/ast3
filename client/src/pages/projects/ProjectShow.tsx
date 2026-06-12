@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Card, Descriptions, List, Button, Modal, Form, Input, DatePicker, message, Select, Tag, Progress } from "antd";
+import { Card, Descriptions, List, Button, Modal, Form, Input, DatePicker, message, Select, Tag, Progress, Popconfirm } from "antd";
 import { gqlQuery } from "@/api/graphql";
+import { statusLabel } from "@/utils/statusLabels";
 
 type Task = {
   id: string;
@@ -9,7 +10,7 @@ type Task = {
   plannedStart?: string | null;
   plannedEnd?: string | null;
   progress?: number | null;
-  status?: { id: string; name: string; color?: string | null } | null;
+  status?: { id: string; name: string; code?: string; color?: string | null } | null;
 };
 type Project = { id: string; code?: string; name: string; description?: string };
 
@@ -23,7 +24,7 @@ export function ProjectShow() {
     gqlQuery<{ project: Project; tasks: Task[] }>(
       `query ($id: ID!) {
         project(id: $id) { id code name description }
-        tasks(projectId: $id) { id title plannedStart plannedEnd progress status { id name color } }
+        tasks(projectId: $id) { id title plannedStart plannedEnd progress status { id name code color } }
       }`,
       { id: projectId }
     ).then((res) => {
@@ -36,6 +37,21 @@ export function ProjectShow() {
     if (!id) return;
     loadData(id);
   }, [id]);
+
+  async function handleDeleteProject() {
+    if (!id) return;
+    try {
+      await gqlQuery(
+        `mutation ($id: ID!) { deleteProject(id: $id) { success } }`,
+        { id }
+      );
+      message.success("Проект удалён");
+      window.location.href = "/projects";
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : "";
+      message.error(`Не удалось удалить проект${detail ? `: ${detail}` : ""}`);
+    }
+  }
 
   if (!project) return <div style={{ padding: 16 }}>Загрузка...</div>;
 
@@ -51,6 +67,15 @@ export function ProjectShow() {
         <Button type="primary" style={{ marginRight: 8 }} onClick={() => (window.location.href = `/projects/${project.id}/edit`)}>Редактировать проект</Button>
         <Button style={{ marginRight: 8 }} onClick={() => (window.location.href = `/kanban?projectId=${project.id}`)}>Канбан</Button>
         <Button style={{ marginRight: 8 }} onClick={() => (window.location.href = `/projects/${project.id}/gantt`)}>Gantt</Button>
+        <Popconfirm
+          title="Удалить проект?"
+          description="Все задачи проекта будут переведены в статус «Отменено»."
+          okText="Удалить"
+          cancelText="Отмена"
+          onConfirm={handleDeleteProject}
+        >
+          <Button danger>Удалить проект</Button>
+        </Popconfirm>
         <Button onClick={() => setTaskModalVisible(true)}>Создать задачу</Button>
       </div>
 
@@ -70,7 +95,7 @@ export function ProjectShow() {
             <List.Item.Meta
               title={
                 <span>
-                  {t.status?.name && <Tag color={t.status.color ?? "default"}>{t.status.name}</Tag>}
+                  {t.status?.name && <Tag color={t.status.color ?? "default"}>{statusLabel(t.status.code, t.status.name)}</Tag>}
                   <Link to={`/tasks/${t.id}`}>{t.title}</Link>
                 </span>
               }
@@ -86,11 +111,11 @@ export function ProjectShow() {
 
 function TaskCreateForm({ projectId, onCreated }: { projectId: string; onCreated: () => void }) {
   const [form] = Form.useForm();
-  const [statuses, setStatuses] = React.useState<{ id: string; name: string }[]>([]);
+  const [statuses, setStatuses] = React.useState<Array<{ id: string; name: string; code?: string }>>([]);
 
   React.useEffect(() => {
-    gqlQuery<{ project: { statuses: Array<{ id: string; name: string }> } }>(
-      `query ($id: ID!) { project(id: $id) { statuses { id name } } }`,
+    gqlQuery<{ project: { statuses: Array<{ id: string; name: string; code?: string }> } }>(
+      `query ($id: ID!) { project(id: $id) { statuses { id name code } } }`,
       { id: projectId }
     ).then((res) => setStatuses(res.project?.statuses ?? []));
   }, [projectId]);
@@ -119,7 +144,7 @@ function TaskCreateForm({ projectId, onCreated }: { projectId: string; onCreated
   return (
     <Form form={form} layout="vertical" onFinish={onFinish}>
       <Form.Item name="statusId" label="Статус" rules={[{ required: true }]}>
-        <Select placeholder="Выберите статус" options={statuses.map((s) => ({ label: s.name, value: s.id }))} />
+        <Select placeholder="Выберите статус" options={statuses.map((s) => ({ label: statusLabel(s.code, s.name), value: s.id }))} />
       </Form.Item>
       <Form.Item name="title" label="Название" rules={[{ required: true }]}>
         <Input />

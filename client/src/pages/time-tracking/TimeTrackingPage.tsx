@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { Button, Card, Col, DatePicker, Form, Input, Row, Select, Space, Table, Tag, Typography, message } from "antd";
+import { Button, Card, Col, DatePicker, Form, Input, Row, Select, Space, Table, Tag, Typography, message, Alert } from "antd";
 import dayjs, { type Dayjs } from "dayjs";
 import { gqlQuery } from "@/api/graphql";
+import { statusLabel } from "@/utils/statusLabels";
 
 type Project = { id: string; code?: string; name: string };
 type User = { id: string; fullName?: string | null };
-type TaskStatus = { id: string; name: string };
+type TaskStatus = { id: string; name: string; code?: string };
 type Task = {
   id: string;
   code?: string;
@@ -42,6 +43,7 @@ export function TimeTrackingPage() {
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [teamEntries, setTeamEntries] = useState<TimeEntry[]>([]);
   const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null);
+  const [errorText, setErrorText] = useState("");
   const [loading, setLoading] = useState(false);
   const [manualForm] = Form.useForm<ManualEntryValues>();
 
@@ -52,39 +54,99 @@ export function TimeTrackingPage() {
         setProjects(projectList);
         setProjectId((current) => current || projectList[0]?.id || "");
       })
-      .catch(() => message.error("Не удалось загрузить проекты"));
+      .catch((err) => {
+        const detail = err instanceof Error ? err.message : JSON.stringify(err);
+        const messageText = `Не удалось загрузить проекты: ${detail}`;
+        setErrorText(messageText);
+        message.error(messageText);
+      });
   }, []);
 
   useEffect(() => {
     if (!projectId) return;
     setLoading(true);
-    gqlQuery<{
-      tasks: Task[];
-      myTimeEntries: TimeEntry[];
-      timeEntries: TimeEntry[];
-      activeTimer: ActiveTimer | null;
-    }>(
-      `query ($projectId: ID!) {
-        tasks(projectId: $projectId) {
-          id code title progress estimatedHours status { id name } assignee { id fullName }
-        }
-        myTimeEntries { id startTime endTime durationMinutes durationHours source description task { id code title } }
-        timeEntries(projectId: $projectId, includeAll: true) {
-          id startTime endTime durationMinutes durationHours source description task { id code title }
-        }
-        activeTimer { id startTime durationHours task { id code title } }
-      }`,
-      { projectId }
-    )
-      .then((res) => {
-        setTasks(res.tasks ?? []);
-        setEntries(res.myTimeEntries ?? []);
-        setTeamEntries(res.timeEntries ?? []);
-        setActiveTimer(res.activeTimer ?? null);
-      })
-      .catch(() => message.error("Не удалось загрузить тайм-трекинг"))
-      .finally(() => setLoading(false));
+
+    void loadTasks(projectId);
+    void loadMyEntries();
+    void loadTeamEntries(projectId);
+    void loadActiveTimer();
   }, [projectId]);
+
+  async function loadTasks(project: string) {
+    try {
+      const res = await gqlQuery<{ tasks: Task[] }>(
+        `query ($projectId: ID!) {
+          tasks(projectId: $projectId) {
+            id code title progress estimatedHours status { id name } assignee { id fullName }
+          }
+        }`,
+        { projectId: project }
+      );
+      setTasks(res.tasks ?? []);
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : JSON.stringify(err);
+      const messageText = `Не удалось загрузить задачи: ${detail}`;
+      setErrorText(messageText);
+      console.error("Tasks load error", err);
+      message.error(messageText);
+      setTasks([]);
+    }
+  }
+
+  async function loadMyEntries() {
+    try {
+      const res = await gqlQuery<{ myTimeEntries: TimeEntry[] }>(
+        `query { myTimeEntries { id startTime endTime durationMinutes durationHours source description task { id code title } } }`
+      );
+      setEntries(res.myTimeEntries ?? []);
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : JSON.stringify(err);
+      const messageText = `Не удалось загрузить мои записи: ${detail}`;
+      setErrorText(messageText);
+      console.error("My entries load error", err);
+      message.error(messageText);
+      setEntries([]);
+    }
+  }
+
+  async function loadTeamEntries(project: string) {
+    try {
+      const res = await gqlQuery<{ timeEntries: TimeEntry[] }>(
+        `query ($projectId: ID!) {
+          timeEntries(projectId: $projectId, includeAll: true) {
+            id startTime endTime durationMinutes durationHours source description task { id code title }
+          }
+        }`,
+        { projectId: project }
+      );
+      setTeamEntries(res.timeEntries ?? []);
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : JSON.stringify(err);
+      const messageText = `Не удалось загрузить записи проекта: ${detail}`;
+      setErrorText(messageText);
+      console.error("Team entries load error", err);
+      message.error(messageText);
+      setTeamEntries([]);
+    }
+  }
+
+  async function loadActiveTimer() {
+    try {
+      const res = await gqlQuery<{ activeTimer: ActiveTimer | null }>(
+        `query { activeTimer { startTime durationHours task { id code title } } }`
+      );
+      setActiveTimer(res.activeTimer ?? null);
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : JSON.stringify(err);
+      const messageText = `Не удалось загрузить активный таймер: ${detail}`;
+      setErrorText(messageText);
+      console.error("Active timer load error", err);
+      message.error(messageText);
+      setActiveTimer(null);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const taskOptions = useMemo(
     () => tasks.map((task) => ({
@@ -161,6 +223,7 @@ export function TimeTrackingPage() {
 
   return (
     <div style={{ padding: 16 }}>
+      {errorText ? <Alert message="Ошибка загрузки" description={errorText} type="error" showIcon style={{ marginBottom: 16 }} /> : null}
       <Row gutter={[16, 16]}>
         <Col span={24}>
           <Card
@@ -211,7 +274,7 @@ export function TimeTrackingPage() {
                     <Text type="secondary">{record.assignee?.fullName ?? "Без исполнителя"}</Text>
                   </Space>
                 ) },
-                { title: "Статус", dataIndex: ["status", "name"], key: "status", render: (value: string | undefined, record: Task) => <Tag>{value ?? record.status.name}</Tag> },
+                { title: "Статус", dataIndex: ["status", "name"], key: "status", render: (value: string | undefined, record: Task) => <Tag>{statusLabel(record.status.code, value ?? record.status.name)}</Tag> },
                 { title: "Прогресс", dataIndex: "progress", key: "progress", render: (value?: number) => `${value ?? 0}%` },
                 { title: "Учёт", key: "actions", render: (_: unknown, record: Task) => <Button size="small" onClick={() => startTimer(record.id)}>Старт</Button> },
               ]}

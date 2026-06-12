@@ -108,7 +108,7 @@ class UpdateProjectInput:
 class ProjectsQuery:
     @strawberry_django.field
     def projects(self) -> list[ProjectType]:
-        return Project.objects.select_related("lead", "department").all()
+        return Project.objects.exclude(status=Project.CANCELLED).select_related("lead", "department").all()
 
     @strawberry_django.field
     def project(self, id: strawberry.ID) -> ProjectType | None:
@@ -151,6 +151,14 @@ class ProjectsMutation:
     ) -> ProjectType:
         return _run_sync(_update_project_sync, info, id, input)
 
+    @strawberry.type
+    class DeleteProjectPayload:
+        success: bool
+
+    @strawberry.mutation
+    def delete_project(self, info: strawberry.types.Info, id: strawberry.ID) -> ProjectsMutation.DeleteProjectPayload:
+        return _run_sync(_delete_project_sync, info, id)
+
 
 def _create_project_sync(info: strawberry.types.Info, input: CreateProjectInput) -> ProjectType:
     from permissions.helpers import require_role
@@ -189,4 +197,20 @@ def _update_project_sync(
             setattr(project, field, value)
     project.save()
     return project  # type: ignore[return-value]
+
+
+def _delete_project_sync(
+    info: strawberry.types.Info, id: strawberry.ID
+) -> ProjectsMutation.DeleteProjectPayload:
+    from permissions.helpers import require_project_access
+    from tasks.models import TaskStatus
+
+    project = Project.objects.get(pk=id)
+    require_project_access(info, project, min_role="owner")
+    cancelled_status = TaskStatus.objects.filter(project_id=project.id, code="cancelled").first()
+    if cancelled_status:
+        project.tasks.update(status_id=cancelled_status.id)
+    project.status = Project.CANCELLED
+    project.save(update_fields=["status", "updated_at"])
+    return ProjectsMutation.DeleteProjectPayload(success=True)
 

@@ -16,20 +16,21 @@ import {
   BarsOutlined,
   LeftOutlined,
   RightOutlined,
+  UserOutlined,
 } from "@ant-design/icons";
 import {
   type ITreeMenu,
+  useGetIdentity,
   useIsExistAuthentication,
   useLink,
-  useLogout,
   useRefineContext,
   useRouterContext,
   useRouterType,
   useMenu,
   useTranslate,
   useWarnAboutChange,
-  useActiveAuthProvider,
 } from "@refinedev/core";
+import { useNavigate } from "react-router-dom";
 import {
   ThemedHeaderV2,
   ThemedLayoutContextProvider,
@@ -115,10 +116,12 @@ export function SiderMenu({ Title = ThemedTitleV2 }: SiderMenuProps) {
   const breakpoint = Grid.useBreakpoint();
   const { hasDashboard } = useRefineContext();
   const isExistAuthentication = useIsExistAuthentication();
-  const authProvider = useActiveAuthProvider();
-  const { mutate: mutateLogout } = useLogout({
-    v3LegacyAuthProviderCompatible: Boolean(authProvider?.isLegacy),
-  });
+  const navigate = useNavigate();
+  const { data: identity, isLoading: identityLoading } = useGetIdentity<{
+    id?: string;
+    fullName?: string;
+    email?: string;
+  }>();
 
   const Link = routerType === "legacy" ? LegacyLink : NewLink;
   const isMobile =
@@ -135,11 +138,15 @@ export function SiderMenu({ Title = ThemedTitleV2 }: SiderMenuProps) {
 
       if (confirm) {
         setWarnWhen(false);
-        mutateLogout();
+      } else {
+        return;
       }
-    } else {
-      mutateLogout();
     }
+
+    localStorage.removeItem("ast3_access");
+    localStorage.removeItem("ast3_refresh");
+    navigate("/login");
+    window.location.href = "/login";
   };
 
   const menuTreeItems = useMemo(
@@ -204,13 +211,58 @@ export function SiderMenu({ Title = ThemedTitleV2 }: SiderMenuProps) {
         paddingTop: "8px",
         border: "none",
         overflow: "auto",
-        height: "calc(100% - 72px)",
+        height: "calc(100% - 128px)",
       }}
       onClick={() => {
         setMobileSiderOpen(false);
       }}
     />
   );
+
+  const renderUserInfo = () => {
+    if (siderCollapsed) {
+      return (
+        <div
+          style={{
+            height: 64,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            borderTop: `1px solid ${token.colorBgElevated}`,
+          }}
+          title={identity?.email}
+        >
+          <UserOutlined />
+        </div>
+      );
+    }
+
+    return (
+      <div
+        style={{
+          height: 64,
+          padding: "0 16px",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          gap: 2,
+          borderTop: `1px solid ${token.colorBgElevated}`,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <UserOutlined />
+          <div style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {identityLoading ? "Загрузка..." : identity?.fullName || identity?.email || "Пользователь"}
+          </div>
+        </div>
+        {identity?.email ? (
+          <div style={{ fontSize: 12, color: token.colorTextSecondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {identity.email}
+          </div>
+        ) : null}
+      </div>
+    );
+  };
 
   const siderStyles: React.CSSProperties = {
     backgroundColor: token.colorBgContainer,
@@ -294,7 +346,7 @@ export function SiderMenu({ Title = ThemedTitleV2 }: SiderMenuProps) {
           {renderClosingIcons()}
         </Button>
       }
-    >
+      >
       <div
         style={{
           width: siderCollapsed ? "80px" : "200px",
@@ -310,6 +362,8 @@ export function SiderMenu({ Title = ThemedTitleV2 }: SiderMenuProps) {
         <Title collapsed={siderCollapsed} />
       </div>
       {renderMenu()}
+      {renderUserInfo()}
     </Layout.Sider>
+
   );
 }

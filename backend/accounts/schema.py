@@ -69,6 +69,12 @@ class AccountsMutation:
         return TokenPair(access=str(refresh.access_token), refresh=str(refresh))
 
     @strawberry.mutation
+    def refresh_access_token(self, refresh: str) -> TokenPair:
+        """Refresh an access token using a valid refresh token."""
+        token = RefreshToken(refresh)
+        return TokenPair(access=str(token.access_token), refresh=str(token))
+
+    @strawberry.mutation
     def placeholder_accounts(self) -> bool:
         # Mutations: register, updateProfile, changePassword — implement per phase plan
         return True

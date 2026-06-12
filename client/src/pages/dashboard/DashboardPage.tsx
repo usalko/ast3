@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Card, Col, Empty, Progress, Row, Spin, Statistic, Table, Tag, Typography } from "antd";
 import { Link } from "react-router-dom";
 import { gqlQuery } from "@/api/graphql";
+import { statusLabel } from "@/utils/statusLabels";
 
 type Project = { id: string; code?: string; name: string; progress?: number | null; type?: string };
 type Task = { id: string; title: string; progress?: number | null; status: { name: string; code: string; isDone?: boolean } };
@@ -92,7 +93,7 @@ export function DashboardPage() {
                 <div key={task.id} style={{ marginBottom: 8 }}>
                   <SpaceLine>
                     <Text strong>{task.title}</Text>
-                    <Tag>{task.status.name}</Tag>
+                    <Tag>{statusLabel(task.status.code, task.status.name)}</Tag>
                     <Text type="secondary">{task.progress ?? 0}%</Text>
                   </SpaceLine>
                   <Progress percent={task.progress ?? 0} size="small" />

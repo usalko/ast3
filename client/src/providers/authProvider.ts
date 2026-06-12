@@ -1,13 +1,12 @@
 import type { AuthProvider } from "@refinedev/core";
+import { gqlQuery } from "@/api/graphql";
 
 const TOKEN_KEY = "ast3_access";
 const REFRESH_KEY = "ast3_refresh";
 
-const GRAPHQL_URL = import.meta.env.VITE_GRAPHQL_URL ?? "/graphql/";
-
 async function gql(query: string, variables?: Record<string, unknown>) {
   const token = localStorage.getItem(TOKEN_KEY);
-  const res = await fetch(GRAPHQL_URL, {
+  const res = await fetch("/graphql/", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -46,7 +45,12 @@ export const authProvider: AuthProvider = {
   check: async () => {
     const token = localStorage.getItem(TOKEN_KEY);
     if (!token) return { authenticated: false, redirectTo: "/login" };
-    return { authenticated: true };
+    try {
+      const data = await gqlQuery<{ me: { id: string } | null }>(`query { me { id } }`);
+      return data.me ? { authenticated: true } : { authenticated: false, redirectTo: "/login" };
+    } catch {
+      return { authenticated: false, redirectTo: "/login" };
+    }
   },
 
   getPermissions: async () => null,

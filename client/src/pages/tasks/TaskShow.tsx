@@ -3,8 +3,9 @@ import { useParams } from "react-router-dom";
 import { Card, Descriptions, Button, Modal, message } from "antd";
 import { useNavigate } from "react-router-dom";
 import { gqlQuery } from "@/api/graphql";
+import { statusLabel } from "@/utils/statusLabels";
 
-type Task = { id: string; title: string; description?: string; plannedStart?: string | null; plannedEnd?: string | null; progress?: number | null; estimatedHours?: number | null; type?: string; status?: { id: string; name: string } | null; assignee?: { fullName?: string | null } | null };
+type Task = { id: string; title: string; description?: string; plannedStart?: string | null; plannedEnd?: string | null; progress?: number | null; estimatedHours?: number | null; type?: string; status?: { id: string; name: string; code?: string } | null; assignee?: { fullName?: string | null } | null };
 
 export function TaskShow() {
   const { id } = useParams<{ id: string }>();
@@ -13,7 +14,7 @@ export function TaskShow() {
 
   useEffect(() => {
     if (!id) return;
-    gqlQuery<{ task: Task }>(`query ($id: ID!) { task(id: $id) { id title description plannedStart plannedEnd progress estimatedHours type status { id name } assignee { fullName } } }`, { id })
+    gqlQuery<{ task: Task }>(`query ($id: ID!) { task(id: $id) { id title description plannedStart plannedEnd progress estimatedHours type status { id name code } assignee { fullName } } }`, { id })
       .then((res) => setTask(res.task ?? null));
   }, [id]);
 
@@ -48,7 +49,7 @@ export function TaskShow() {
 
       <Card title={task.title}>
         <Descriptions column={1} bordered>
-          <Descriptions.Item label="Статус">{task.status?.name ?? "—"}</Descriptions.Item>
+          <Descriptions.Item label="Статус">{statusLabel(task.status?.code, task.status?.name)}</Descriptions.Item>
           <Descriptions.Item label="Тип">{taskTypeLabel(task.type)}</Descriptions.Item>
           <Descriptions.Item label="Исполнитель">{task.assignee?.fullName ?? "—"}</Descriptions.Item>
           <Descriptions.Item label="Описание">{task.description}</Descriptions.Item>

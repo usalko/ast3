@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Table, Button, Space, Typography } from "antd";
+import { Table, Button, Space, Typography, Popconfirm, message } from "antd";
 import { Link } from "react-router-dom";
 import { gqlQuery } from "@/api/graphql";
 
@@ -23,9 +23,20 @@ export function ProjectList() {
   useEffect(() => {
     setLoading(true);
     gqlQuery<{ projects: Project[] }>(`query { projects { id code name plannedStart plannedEnd type status progress } }`)
-      .then((res) => setData(res.projects || []))
+      .then((res) => setData((res.projects || []).filter((project) => project.status !== "cancelled")))
       .finally(() => setLoading(false));
   }, []);
+
+  async function handleDelete(projectId: string) {
+    try {
+      await gqlQuery(`mutation ($id: ID!) { deleteProject(id: $id) { success } }`, { id: projectId });
+      setData((current) => current.filter((project) => project.id !== projectId));
+      message.success("Проект удалён");
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : "";
+      message.error(`Не удалось удалить проект${detail ? `: ${detail}` : ""}`);
+    }
+  }
 
   return (
     <div style={{ padding: 16 }}>
@@ -62,6 +73,15 @@ export function ProjectList() {
               <Link to={`/projects/${record.id}/gantt`}>
                 <Button>Gantt</Button>
               </Link>
+              <Popconfirm
+                title="Удалить проект?"
+                description="Все задачи проекта будут переведены в статус «Отменено»."
+                okText="Удалить"
+                cancelText="Отмена"
+                onConfirm={() => handleDelete(record.id)}
+              >
+                <Button danger>Удалить</Button>
+              </Popconfirm>
             </Space>
           )}
         />

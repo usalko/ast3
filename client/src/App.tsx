@@ -1,5 +1,5 @@
 import { Refine } from "@refinedev/core";
-import { RefineThemes, ThemedLayoutV2 } from "@refinedev/antd";
+import { RefineThemes } from "@refinedev/antd";
 import "@refinedev/antd/dist/reset.css";
 import { ConfigProvider, App as AntApp } from "antd";
 import ruRU from "antd/locale/ru_RU";
@@ -9,10 +9,16 @@ import { authProvider } from "@/providers/authProvider";
 import { dataProvider } from "@/providers/dataProvider";
 import { ProjectList } from "@/pages/projects/ProjectList";
 import { ProjectShow } from "@/pages/projects/ProjectShow";
+import { ProjectForm } from "@/pages/projects/ProjectForm";
 import { TaskShow } from "@/pages/tasks/TaskShow";
+import { TaskForm } from "@/pages/tasks/TaskForm";
 import { LoginPage } from "@/pages/auth/LoginPage";
 import { DashboardPage } from "@/pages/dashboard/DashboardPage";
 import { GanttPage } from "@/pages/gantt/GanttPage";
+import { KanbanPage } from "@/pages/kanban/KanbanPage";
+import { TimeTrackingPage } from "@/pages/time-tracking/TimeTrackingPage";
+import { AnalyticsPage } from "@/pages/analytics/AnalyticsPage";
+import { AppLayout } from "@/components/SiderMenu";
 
 const GRAPHQL_URL = import.meta.env.VITE_GRAPHQL_URL ?? "/graphql/";
 
@@ -34,6 +40,26 @@ export default function App() {
                 name: "tasks",
                 show: "/tasks/:id",
               },
+              {
+                name: "kanban",
+                list: "/kanban",
+                meta: { label: "Канбан-доска" },
+              },
+              {
+                name: "time-tracking",
+                list: "/time-tracking",
+                meta: { label: "Тайм-трекинг" },
+              },
+              {
+                name: "gantt",
+                list: "/gantt",
+                meta: { label: "Диаграмма Ганта" },
+              },
+              {
+                name: "analytics",
+                list: "/analytics",
+                meta: { label: "Аналитика" },
+              },
             ]}
             options={{ syncWithLocation: true, warnWhenUnsavedChanges: true }}
           >
@@ -41,16 +67,24 @@ export default function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route
                 element={
-                  <ThemedLayoutV2>
+                  <AppLayout>
                     <Outlet />
-                  </ThemedLayoutV2>
+                  </AppLayout>
                 }
               >
                 <Route index element={<DashboardPage />} />
+                <Route path="/kanban" element={<KanbanPage />} />
+                <Route path="/time-tracking" element={<TimeTrackingPage />} />
+                <Route path="/gantt" element={<GanttPage />} />
+                <Route path="/analytics" element={<AnalyticsPage />} />
                 <Route path="/projects" element={<ProjectList />} />
+                <Route path="/projects/new" element={<ProjectForm />} />
                 <Route path="/projects/:id" element={<ProjectShow />} />
+                <Route path="/projects/:id/edit" element={<ProjectForm />} />
                 <Route path="/projects/:projectId/gantt" element={<GanttPage />} />
+                <Route path="/tasks/new" element={<TaskForm />} />
                 <Route path="/tasks/:id" element={<TaskShow />} />
+                <Route path="/tasks/:id/edit" element={<TaskForm />} />
               </Route>
             </Routes>
           </Refine>

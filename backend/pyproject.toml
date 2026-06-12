@@ -7,7 +7,7 @@ license = "MIT"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = ">=3.12,<3.13"
 
 # Django core
 django = "^5.1"
@@ -74,12 +74,13 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "S", "B", "A", "C4", "DTZ", "T10", "ISC", "ICN", "Q", "RET", "SIM", "TID", "ARG", "PTH", "ERA", "PL", "RUF"]
-ignore = ["S101", "RUF012", "PLR0913", "A003"]
+ignore = ["S101", "RUF012", "PLR0913", "A003", "A002", "ERA001"]
 
 [tool.ruff.lint.per-file-ignores]
 "*/tests/*" = ["S", "ARG", "PLR2004"]
 "*/migrations/*" = ["E501", "RUF012"]
 "*/settings/*" = ["S105"]
+"conftest.py" = ["S106"]
 
 [tool.mypy]
 python_version = "3.12"

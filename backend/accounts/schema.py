@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import strawberry
 import strawberry_django
+from django.contrib.auth import authenticate
+from rest_framework_simplejwt.tokens import RefreshToken
 from strawberry import auto
 
 from .models import Department, User
@@ -18,7 +20,7 @@ class UserType:
     position: auto
     is_active: auto
     full_name: str
-    department: "DepartmentType | None"
+    department: DepartmentType | None
 
 
 @strawberry_django.type(Department)
@@ -28,7 +30,13 @@ class DepartmentType:
     code: auto
     description: auto
     is_active: auto
-    parent: "DepartmentType | None"
+    parent: DepartmentType | None
+
+
+@strawberry.type
+class TokenPair:
+    access: str
+    refresh: str
 
 
 @strawberry.type
@@ -51,6 +59,15 @@ class AccountsQuery:
 
 @strawberry.type
 class AccountsMutation:
+    @strawberry.mutation
+    def token_obtain_pair(self, email: str, password: str) -> TokenPair:
+        """Authenticate user and return JWT tokens."""
+        user = authenticate(username=email, password=password)
+        if not user:
+            raise Exception("Invalid credentials")
+        refresh = RefreshToken.for_user(user)
+        return TokenPair(access=str(refresh.access_token), refresh=str(refresh))
+
     @strawberry.mutation
     def placeholder_accounts(self) -> bool:
         # Mutations: register, updateProfile, changePassword — implement per phase plan

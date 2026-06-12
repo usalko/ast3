@@ -1,10 +1,8 @@
 """Test settings — fast, in-memory where possible."""
-from .base import *  # noqa: F401, F403
+from .base import *  # noqa: F403
 
 DEBUG = False
 GRAPHQL_INTROSPECTION = True
-
-SECRET_KEY = "test-secret-key-not-for-production"
 
 DATABASES = {
     "default": {

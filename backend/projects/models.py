@@ -67,8 +67,6 @@ class Project(models.Model):
     @property
     def progress(self) -> int:
         """Average progress of all non-cancelled tasks."""
-        from tasks.models import Task  # avoid circular import at module level
-
         qs = self.tasks.exclude(status__code="cancelled").values_list("progress", flat=True)
         values = list(qs)
         if not values:

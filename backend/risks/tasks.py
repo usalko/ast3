@@ -6,12 +6,15 @@ from celery import shared_task
 from django.utils import timezone
 
 log = structlog.get_logger(__name__)
+LOW_TIME_REMAINING_RATIO = 0.2
+LOW_PROGRESS_THRESHOLD = 80
 
 
 @shared_task(name="risks.calculate_auto_risks")
 def calculate_auto_risks() -> dict:
     """Evaluate all active tasks and create/update auto Risk records."""
     from tasks.models import Task
+
     from .models import Risk
 
     now = timezone.now()
@@ -39,7 +42,7 @@ def calculate_auto_risks() -> dict:
 
             if planned_duration and planned_duration > 0:
                 pct_left = remaining / planned_duration
-                if pct_left < 0.2 and task.progress < 80:
+                if pct_left < LOW_TIME_REMAINING_RATIO and task.progress < LOW_PROGRESS_THRESHOLD:
                     level = Risk.MEDIUM
                     reason = "Less than 20% time remaining but progress below 80%"
 

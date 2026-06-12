@@ -20,7 +20,12 @@ class Risk(models.Model):
     MITIGATED = "mitigated"
     ACCEPTED = "accepted"
     CLOSED = "closed"
-    STATUS_CHOICES = [(OPEN, "Open"), (MITIGATED, "Mitigated"), (ACCEPTED, "Accepted"), (CLOSED, "Closed")]
+    STATUS_CHOICES = [
+        (OPEN, "Open"),
+        (MITIGATED, "Mitigated"),
+        (ACCEPTED, "Accepted"),
+        (CLOSED, "Closed"),
+    ]
 
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
@@ -31,7 +36,11 @@ class Risk(models.Model):
     status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=OPEN)
     mitigation = models.TextField(blank=True)
     owner = models.ForeignKey(
-        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="owned_risks"
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="owned_risks",
     )
     # Link to either project or task (at least one must be set)
     project = models.ForeignKey(

@@ -36,7 +36,12 @@ class AuditLog(models.Model):
         if self.pk:
             raise ValueError("AuditLog entries are immutable")
         # Compute hash chain
-        prev = AuditLog.objects.order_by("-timestamp").values_list("entry_hash", flat=True).first() or ""
+        prev = (
+            AuditLog.objects.order_by("-timestamp")
+            .values_list("entry_hash", flat=True)
+            .first()
+            or ""
+        )
         self.previous_hash = prev
         chain_input = json.dumps(
             {
@@ -63,7 +68,7 @@ class AuditLog(models.Model):
         resource_id: str | int,
         payload: dict | None = None,
         request=None,
-    ) -> "AuditLog":
+    ) -> AuditLog:
         ip = None
         ua = ""
         if request:

@@ -2,6 +2,7 @@
 Base Django settings for AST3.
 All environment-specific settings extend this module.
 """
+import os
 from pathlib import Path
 
 import environ
@@ -16,9 +17,13 @@ env = environ.Env(
     GRAPHQL_MAX_DEPTH=(int, 10),
 )
 
-SECRET_KEY = env("DJANGO_SECRET_KEY")
-
 DEBUG = env("DEBUG")
+
+_SETTINGS_MODULE = os.environ.get("DJANGO_SETTINGS_MODULE", "")
+if _SETTINGS_MODULE.endswith((".dev", ".test")):
+    SECRET_KEY = env("DJANGO_SECRET_KEY", default="test-secret-key-not-for-production")
+else:
+    SECRET_KEY = env("DJANGO_SECRET_KEY")
 
 ALLOWED_HOSTS: list[str] = env("ALLOWED_HOSTS")
 
@@ -40,6 +45,7 @@ INSTALLED_APPS = [
     "django_celery_beat",
     "django_celery_results",
     "django_prometheus",
+    "rest_framework_simplejwt.token_blacklist",
     # Domain apps
     "accounts",
     "projects",
@@ -60,6 +66,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "accounts.middleware.JWTAuthMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "csp.middleware.CSPMiddleware",
@@ -94,7 +101,7 @@ ASGI_APPLICATION = "core.asgi.application"
 DATABASES = {
     "default": env.db("DATABASE_URL", default="postgres://ast3:ast3@localhost:5432/ast3"),
 }
-DATABASES["default"]["ATOMIC_REQUESTS"] = True
+DATABASES["default"]["ATOMIC_REQUESTS"] = False
 DATABASES["default"]["CONN_MAX_AGE"] = env.int("DB_CONN_MAX_AGE", default=60)
 
 # -------------------------------------------------------------------
@@ -104,7 +111,10 @@ AUTH_USER_MODEL = "accounts.User"
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 12}},
+    {
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        "OPTIONS": {"min_length": 12},
+    },
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
     {"NAME": "accounts.validators.ZxcvbnPasswordValidator"},
@@ -203,7 +213,8 @@ SESSION_COOKIE_HTTPONLY = True
 
 CSP_DEFAULT_SRC = ("'self'",)
 CSP_SCRIPT_SRC = ("'self'",)
-CSP_STYLE_SRC = ("'self'", "'unsafe-inline'")  # Ant Design requires inline styles — add nonce in future
+# Ant Design requires inline styles; add nonce support before removing unsafe-inline.
+CSP_STYLE_SRC = ("'self'", "'unsafe-inline'")
 CSP_IMG_SRC = ("'self'", "data:")
 CSP_FONT_SRC = ("'self'", "data:")
 CSP_CONNECT_SRC = ("'self'",)

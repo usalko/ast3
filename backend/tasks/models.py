@@ -105,7 +105,12 @@ class TaskDependency(models.Model):
     SS = "SS"
     FF = "FF"
     SF = "SF"
-    TYPE_CHOICES = [(FS, "Finish→Start"), (SS, "Start→Start"), (FF, "Finish→Finish"), (SF, "Start→Finish")]
+    TYPE_CHOICES = [
+        (FS, "Finish→Start"),
+        (SS, "Start→Start"),
+        (FF, "Finish→Finish"),
+        (SF, "Start→Finish"),
+    ]
 
     predecessor = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="successors")
     successor = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="predecessors")

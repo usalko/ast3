@@ -35,7 +35,11 @@ def require_project_member(info: strawberry.types.Info, project_id: str | int) -
         raise PermissionDenied("You are not a member of this project")
 
 
-def require_project_access(info: strawberry.types.Info, project, min_role: str = "developer") -> None:
+def require_project_access(
+    info: strawberry.types.Info,
+    project,
+    min_role: str = "developer",
+) -> None:
     """Raise PermissionDenied if the user's project role is below min_role."""
     user = _get_user(info)
     if user.is_superuser:

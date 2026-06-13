@@ -71,7 +71,6 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "csp.middleware.CSPMiddleware",
     "axes.middleware.AxesMiddleware",
-    "django_structlog.middlewares.RequestMiddleware",
     "django_prometheus.middleware.PrometheusAfterMiddleware",
 ]
 

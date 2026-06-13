@@ -67,13 +67,13 @@ export function TaskForm() {
         plannedStart: values.plannedStart ? values.plannedStart.toISOString() : null,
         plannedEnd: values.plannedEnd ? values.plannedEnd.toISOString() : null,
         estimatedHours: values.estimatedHours ?? null,
-        statusId: form.getFieldValue("statusId"),
-        assigneeId: form.getFieldValue("assigneeId"),
-        type: form.getFieldValue("type"),
+        statusId: values.statusId,
+        assigneeId: values.assigneeId,
+        type: values.type,
       };
 
       if (id) {
-        input.progress = form.getFieldValue("progress");
+        input.progress = values.progress;
       }
 
       if (id) {

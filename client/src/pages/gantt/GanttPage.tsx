@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Button, Card, Progress, Select, Space, Table, Typography, Empty, Spin } from "antd";
+import { Button, Card, Progress, Select, Space, Table, Tag, Typography, Empty, Spin } from "antd";
 import dayjs from "dayjs";
 import { gqlQuery } from "@/api/graphql";
+import { riskColor, riskLabel } from "@/utils/riskLabels";
 
 type Project = { id: string; code?: string; name: string; plannedStart?: string | null; plannedEnd?: string | null };
 type ProjectOption = { id: string; code?: string; name: string };
@@ -21,6 +22,8 @@ type Task = {
   plannedStart?: string | null;
   plannedEnd?: string | null;
   progress?: number | null;
+  riskLevel?: number | null;
+  isOverdue?: boolean | null;
   status: TaskStatus;
   assignee?: User | null;
   dependencies?: Dependency[];
@@ -53,7 +56,7 @@ export function GanttPage() {
       `query ($projectId: ID!) {
         project(id: $projectId) { id code name plannedStart plannedEnd }
         tasks(projectId: $projectId) {
-          id code title plannedStart plannedEnd progress status { id name color }
+          id code title plannedStart plannedEnd progress riskLevel isOverdue status { id name color }
           assignee { id fullName }
           dependencies { id type predecessor { id code title } successor { id code title } }
         }
@@ -84,15 +87,17 @@ export function GanttPage() {
     return { min, max, days };
   }, [project, tasks]);
 
-  const rows = tasks
-    .filter((task) => task.plannedStart || task.plannedEnd)
-    .map((task) => {
-      const start = dayjs(task.plannedStart || timeline.min);
-      const end = dayjs(task.plannedEnd || start.add(1, "day"));
-      const left = Math.max(0, start.diff(timeline.min, "day"));
-      const width = Math.max(2, end.diff(start, "day") + 1);
-      return { task, left, width };
-    });
+  const ganttRows = useMemo(() => {
+    return tasks
+      .filter((task) => task.plannedStart || task.plannedEnd)
+      .map((task) => {
+        const start = dayjs(task.plannedStart || timeline.min);
+        const end = dayjs(task.plannedEnd || start.add(1, "day"));
+        const left = Math.max(0, start.diff(timeline.min, "day"));
+        const width = Math.max(2, end.diff(start, "day") + 1);
+        return { task, left, width };
+      });
+  }, [tasks, timeline]);
 
   return (
     <div style={{ padding: 16 }}>
@@ -125,7 +130,7 @@ export function GanttPage() {
             </div>
             <Table
               rowKey={(record) => record.task.id}
-              dataSource={rows}
+              dataSource={ganttRows}
               pagination={false}
               size="small"
               columns={[
@@ -138,6 +143,7 @@ export function GanttPage() {
                       <Space wrap>
                         <Text code>{record.task.code}</Text>
                         <Text strong>{record.task.title}</Text>
+                        <Tag color={riskColor(record.task.riskLevel)}>{record.task.isOverdue ? "Просрочено" : riskLabel(record.task.riskLevel)}</Tag>
                       </Space>
                       <Text type="secondary">
                         {record.task.assignee?.fullName ?? "Без исполнителя"} · {record.task.status.name}

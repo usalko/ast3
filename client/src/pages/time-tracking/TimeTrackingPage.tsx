@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Button, Card, Col, DatePicker, Form, Input, Row, Select, Space, Table, Tag, Typography, message, Alert } from "antd";
 import dayjs, { type Dayjs } from "dayjs";
 import { gqlQuery } from "@/api/graphql";
+import { riskColor, riskLabel } from "@/utils/riskLabels";
 import { statusLabel } from "@/utils/statusLabels";
 
 type Project = { id: string; code?: string; name: string };
@@ -13,6 +14,8 @@ type Task = {
   title: string;
   progress?: number | null;
   estimatedHours?: number | null;
+  riskLevel?: number | null;
+  isOverdue?: boolean | null;
   status: TaskStatus;
   assignee?: User | null;
 };
@@ -42,7 +45,7 @@ export function TimeTrackingPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [teamEntries, setTeamEntries] = useState<TimeEntry[]>([]);
-  const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null);
+  const [activeTimers, setActiveTimers] = useState<ActiveTimer[]>([]);
   const [errorText, setErrorText] = useState("");
   const [loading, setLoading] = useState(false);
   const [manualForm] = Form.useForm<ManualEntryValues>();
@@ -69,84 +72,84 @@ export function TimeTrackingPage() {
     void loadTasks(projectId);
     void loadMyEntries();
     void loadTeamEntries(projectId);
-    void loadActiveTimer();
+    void loadActiveTimers();
+
+    async function loadTasks(project: string) {
+      try {
+        const res = await gqlQuery<{ tasks: Task[] }>(
+          `query ($projectId: ID!) {
+            tasks(projectId: $projectId) {
+              id code title progress estimatedHours riskLevel isOverdue status { id name } assignee { id fullName }
+            }
+          }`,
+          { projectId: project }
+        );
+        setTasks(res.tasks ?? []);
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : JSON.stringify(err);
+        const messageText = `Не удалось загрузить задачи: ${detail}`;
+        setErrorText(messageText);
+        console.error("Tasks load error", err);
+        message.error(messageText);
+        setTasks([]);
+      }
+    }
+
+    async function loadMyEntries() {
+      try {
+        const res = await gqlQuery<{ myTimeEntries: TimeEntry[] }>(
+          `query { myTimeEntries { id startTime endTime durationMinutes durationHours source description task { id code title } } }`
+        );
+        setEntries(res.myTimeEntries ?? []);
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : JSON.stringify(err);
+        const messageText = `Не удалось загрузить мои записи: ${detail}`;
+        setErrorText(messageText);
+        console.error("My entries load error", err);
+        message.error(messageText);
+        setEntries([]);
+      }
+    }
+
+    async function loadTeamEntries(project: string) {
+      try {
+        const res = await gqlQuery<{ timeEntries: TimeEntry[] }>(
+          `query ($projectId: ID!) {
+            timeEntries(projectId: $projectId, includeAll: true) {
+              id startTime endTime durationMinutes durationHours source description task { id code title }
+            }
+          }`,
+          { projectId: project }
+        );
+        setTeamEntries(res.timeEntries ?? []);
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : JSON.stringify(err);
+        const messageText = `Не удалось загрузить записи проекта: ${detail}`;
+        setErrorText(messageText);
+        console.error("Team entries load error", err);
+        message.error(messageText);
+        setTeamEntries([]);
+      }
+    }
+
+    async function loadActiveTimers() {
+      try {
+        const res = await gqlQuery<{ activeTimers: ActiveTimer[] }>(
+          `query { activeTimers { id startTime durationHours task { id code title } } }`
+        );
+        setActiveTimers(res.activeTimers ?? []);
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : "";
+        const messageText = `Не удалось загрузить активные таймеры${detail ? `: ${detail}` : ""}`;
+        setErrorText(messageText);
+        console.error("Active timers load error", err);
+        message.error(messageText);
+        setActiveTimers([]);
+      } finally {
+        setLoading(false);
+      }
+    }
   }, [projectId]);
-
-  async function loadTasks(project: string) {
-    try {
-      const res = await gqlQuery<{ tasks: Task[] }>(
-        `query ($projectId: ID!) {
-          tasks(projectId: $projectId) {
-            id code title progress estimatedHours status { id name } assignee { id fullName }
-          }
-        }`,
-        { projectId: project }
-      );
-      setTasks(res.tasks ?? []);
-    } catch (err) {
-      const detail = err instanceof Error ? err.message : JSON.stringify(err);
-      const messageText = `Не удалось загрузить задачи: ${detail}`;
-      setErrorText(messageText);
-      console.error("Tasks load error", err);
-      message.error(messageText);
-      setTasks([]);
-    }
-  }
-
-  async function loadMyEntries() {
-    try {
-      const res = await gqlQuery<{ myTimeEntries: TimeEntry[] }>(
-        `query { myTimeEntries { id startTime endTime durationMinutes durationHours source description task { id code title } } }`
-      );
-      setEntries(res.myTimeEntries ?? []);
-    } catch (err) {
-      const detail = err instanceof Error ? err.message : JSON.stringify(err);
-      const messageText = `Не удалось загрузить мои записи: ${detail}`;
-      setErrorText(messageText);
-      console.error("My entries load error", err);
-      message.error(messageText);
-      setEntries([]);
-    }
-  }
-
-  async function loadTeamEntries(project: string) {
-    try {
-      const res = await gqlQuery<{ timeEntries: TimeEntry[] }>(
-        `query ($projectId: ID!) {
-          timeEntries(projectId: $projectId, includeAll: true) {
-            id startTime endTime durationMinutes durationHours source description task { id code title }
-          }
-        }`,
-        { projectId: project }
-      );
-      setTeamEntries(res.timeEntries ?? []);
-    } catch (err) {
-      const detail = err instanceof Error ? err.message : JSON.stringify(err);
-      const messageText = `Не удалось загрузить записи проекта: ${detail}`;
-      setErrorText(messageText);
-      console.error("Team entries load error", err);
-      message.error(messageText);
-      setTeamEntries([]);
-    }
-  }
-
-  async function loadActiveTimer() {
-    try {
-      const res = await gqlQuery<{ activeTimer: ActiveTimer | null }>(
-        `query { activeTimer { startTime durationHours task { id code title } } }`
-      );
-      setActiveTimer(res.activeTimer ?? null);
-    } catch (err) {
-      const detail = err instanceof Error ? err.message : JSON.stringify(err);
-      const messageText = `Не удалось загрузить активный таймер: ${detail}`;
-      setErrorText(messageText);
-      console.error("Active timer load error", err);
-      message.error(messageText);
-      setActiveTimer(null);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   const taskOptions = useMemo(
     () => tasks.map((task) => ({
@@ -174,7 +177,7 @@ export function TimeTrackingPage() {
         `mutation ($taskId: ID!) { startTimer(taskId: $taskId) { id startTime durationHours task { id code title } } }`,
         { taskId }
       );
-      setActiveTimer(res.startTimer);
+      setActiveTimers((current) => [res.startTimer, ...current]);
       message.success("Таймер запущен");
     } catch (err) {
       const detail = err instanceof Error ? err.message : "";
@@ -182,13 +185,13 @@ export function TimeTrackingPage() {
     }
   }
 
-  async function stopTimer() {
-    if (!activeTimer) return;
+  async function stopTimer(timerId: string) {
     try {
       const res = await gqlQuery<{ stopTimer: ActiveTimer }>(
-        `mutation { stopTimer { id startTime endTime durationMinutes durationHours task { id code title } } }`
+        `mutation ($id: ID!) { stopTimer(id: $id) { id startTime endTime durationMinutes durationHours task { id code title } } }`,
+        { id: timerId }
       );
-      setActiveTimer(null);
+      setActiveTimers((current) => current.filter((item) => item.id !== timerId));
       setEntries((current) => [res.stopTimer, ...current]);
       message.success("Таймер остановлен");
     } catch (err) {
@@ -242,18 +245,20 @@ export function TimeTrackingPage() {
             }
           >
             <Space direction="vertical" size={12} style={{ width: "100%" }}>
-              {activeTimer ? (
-                <Card type="inner">
-                  <Space wrap>
-                    <Text strong>Активный таймер:</Text>
-                    <Text code>{activeTimer.task.code}</Text>
-                    <Text>{activeTimer.task.title}</Text>
-                    <Tag color="green">запущен {formatDateTime(activeTimer.startTime)}</Tag>
-                    <Button onClick={stopTimer}>Остановить</Button>
-                  </Space>
-                </Card>
+              {activeTimers.length === 0 ? (
+                <Card type="inner">Активные таймеры отсутствуют. Выберите задачу и нажмите «Старт».</Card>
               ) : (
-                <Card type="inner">Активный таймер отсутствует. Выберите задачу и нажмите «Старт».</Card>
+                activeTimers.map((timer) => (
+                  <Card type="inner" key={timer.id}>
+                    <Space wrap>
+                      <Text strong>Таймер:</Text>
+                      <Text code>{timer.task.code}</Text>
+                      <Text>{timer.task.title}</Text>
+                      <Tag color="green">запущен {formatDateTime(timer.startTime)}</Tag>
+                      <Button onClick={() => stopTimer(timer.id)}>Остановить</Button>
+                    </Space>
+                  </Card>
+                ))
               )}
             </Space>
           </Card>
@@ -276,6 +281,7 @@ export function TimeTrackingPage() {
                 ) },
                 { title: "Статус", dataIndex: ["status", "name"], key: "status", render: (value: string | undefined, record: Task) => <Tag>{statusLabel(record.status.code, value ?? record.status.name)}</Tag> },
                 { title: "Прогресс", dataIndex: "progress", key: "progress", render: (value?: number) => `${value ?? 0}%` },
+                { title: "Риск", dataIndex: "riskLevel", key: "risk", render: (value: number | undefined, record: Task) => <Tag color={riskColor(value)}>{record.isOverdue ? "Просрочено" : riskLabel(value)}</Tag> },
                 { title: "Учёт", key: "actions", render: (_: unknown, record: Task) => <Button size="small" onClick={() => startTimer(record.id)}>Старт</Button> },
               ]}
             />

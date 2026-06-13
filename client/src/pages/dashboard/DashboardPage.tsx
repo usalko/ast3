@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Card, Col, Empty, Progress, Row, Spin, Statistic, Table, Tag, Typography } from "antd";
 import { Link } from "react-router-dom";
 import { gqlQuery } from "@/api/graphql";
+import { riskColor, riskLabel } from "@/utils/riskLabels";
 import { statusLabel } from "@/utils/statusLabels";
 
 type Project = { id: string; code?: string; name: string; progress?: number | null; type?: string };
-type Task = { id: string; title: string; progress?: number | null; status: { name: string; code: string; isDone?: boolean } };
+type Task = { id: string; title: string; progress?: number | null; riskLevel?: number | null; isOverdue?: boolean | null; status: { name: string; code: string; isDone?: boolean } };
 
 const { Text } = Typography;
 
@@ -28,7 +29,7 @@ export function DashboardPage() {
         await Promise.all(
           projectList.map(async (project) => {
             const taskRes = await gqlQuery<{ tasks: Task[] }>(
-              `query ($projectId: ID!) { tasks(projectId: $projectId) { id title progress status { name code isDone } } }`,
+              `query ($projectId: ID!) { tasks(projectId: $projectId) { id title progress riskLevel isOverdue status { name code isDone } } }`,
               { projectId: project.id }
             );
             taskMap[project.id] = taskRes.tasks ?? [];
@@ -46,8 +47,10 @@ export function DashboardPage() {
   const totals = useMemo(() => {
     const allTasks = Object.values(tasksByProject).flat();
     const done = allTasks.filter((task) => task.status.isDone || task.status.code === "done").length;
+    const overdue = allTasks.filter((task) => task.isOverdue).length;
+    const highRisk = allTasks.filter((task) => (task.riskLevel ?? 0) >= 3).length;
     const avgProgress = allTasks.length === 0 ? 0 : Math.round(allTasks.reduce((sum, task) => sum + (task.progress ?? 0), 0) / allTasks.length);
-    return { tasks: allTasks.length, done, avgProgress };
+    return { tasks: allTasks.length, done, overdue, highRisk, avgProgress };
   }, [tasksByProject]);
 
   return (
@@ -58,12 +61,12 @@ export function DashboardPage() {
           <Col span={6}><Card><Statistic title="Задачи" value={totals.tasks} /></Card></Col>
           <Col span={6}><Card><Statistic title="Выполнено" value={totals.done} /></Card></Col>
           <Col span={6}><Card><Statistic title="Средний прогресс" value={totals.avgProgress} suffix="%" /></Card></Col>
+          <Col span={6}><Card><Statistic title="Просрочено" value={totals.overdue} /></Card></Col>
+          <Col span={6}><Card><Statistic title="Высокий риск" value={totals.highRisk} /></Card></Col>
           <Col span={12}>
             <Card title="Быстрый переход">
               <Link to="/kanban">Канбан-доски</Link><br />
-              <Link to="/time-tracking">Тайм-трекинг</Link><br />
-              <Link to="/gantt">Диаграмма Ганта</Link><br />
-              <Link to="/analytics">Аналитика</Link>
+              <Link to="/time-tracking">Тайм-трекинг</Link>
             </Card>
           </Col>
         </Row>
@@ -94,6 +97,7 @@ export function DashboardPage() {
                   <SpaceLine>
                     <Text strong>{task.title}</Text>
                     <Tag>{statusLabel(task.status.code, task.status.name)}</Tag>
+                    <Tag color={riskColor(task.riskLevel)}>{task.isOverdue ? "Просрочено" : riskLabel(task.riskLevel)}</Tag>
                     <Text type="secondary">{task.progress ?? 0}%</Text>
                   </SpaceLine>
                   <Progress percent={task.progress ?? 0} size="small" />

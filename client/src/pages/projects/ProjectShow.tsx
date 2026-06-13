@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { Card, Descriptions, List, Button, Modal, Form, Input, DatePicker, message, Select, Tag, Progress, Popconfirm } from "antd";
 import { gqlQuery } from "@/api/graphql";
+import { riskColor, riskLabel } from "@/utils/riskLabels";
 import { statusLabel } from "@/utils/statusLabels";
 
 type Task = {
@@ -10,12 +11,15 @@ type Task = {
   plannedStart?: string | null;
   plannedEnd?: string | null;
   progress?: number | null;
+  riskLevel?: number | null;
+  isOverdue?: boolean | null;
   status?: { id: string; name: string; code?: string; color?: string | null } | null;
 };
 type Project = { id: string; code?: string; name: string; description?: string };
 
 export function ProjectShow() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [taskModalVisible, setTaskModalVisible] = useState(false);
@@ -24,7 +28,7 @@ export function ProjectShow() {
     gqlQuery<{ project: Project; tasks: Task[] }>(
       `query ($id: ID!) {
         project(id: $id) { id code name description }
-        tasks(projectId: $id) { id title plannedStart plannedEnd progress status { id name code color } }
+        tasks(projectId: $id) { id title plannedStart plannedEnd progress riskLevel isOverdue status { id name code color } }
       }`,
       { id: projectId }
     ).then((res) => {
@@ -46,7 +50,7 @@ export function ProjectShow() {
         { id }
       );
       message.success("Проект удалён");
-      window.location.href = "/projects";
+      navigate("/projects");
     } catch (err) {
       const detail = err instanceof Error ? err.message : "";
       message.error(`Не удалось удалить проект${detail ? `: ${detail}` : ""}`);
@@ -64,9 +68,9 @@ export function ProjectShow() {
       </Card>
 
       <div style={{ marginTop: 12 }}>
-        <Button type="primary" style={{ marginRight: 8 }} onClick={() => (window.location.href = `/projects/${project.id}/edit`)}>Редактировать проект</Button>
-        <Button style={{ marginRight: 8 }} onClick={() => (window.location.href = `/kanban?projectId=${project.id}`)}>Канбан</Button>
-        <Button style={{ marginRight: 8 }} onClick={() => (window.location.href = `/projects/${project.id}/gantt`)}>Gantt</Button>
+        <Button type="primary" style={{ marginRight: 8 }} onClick={() => navigate(`/projects/${project.id}/edit`)}>Редактировать проект</Button>
+        <Button style={{ marginRight: 8 }} onClick={() => navigate(`/kanban?projectId=${project.id}`)}>Канбан</Button>
+        <Button style={{ marginRight: 8 }} onClick={() => navigate(`/projects/${project.id}/gantt`)}>Gantt</Button>
         <Popconfirm
           title="Удалить проект?"
           description="Все задачи проекта будут переведены в статус «Отменено»."
@@ -96,6 +100,7 @@ export function ProjectShow() {
               title={
                 <span>
                   {t.status?.name && <Tag color={t.status.color ?? "default"}>{statusLabel(t.status.code, t.status.name)}</Tag>}
+                  <Tag color={riskColor(t.riskLevel)}>{t.isOverdue ? "Просрочено" : riskLabel(t.riskLevel)}</Tag>
                   <Link to={`/tasks/${t.id}`}>{t.title}</Link>
                 </span>
               }

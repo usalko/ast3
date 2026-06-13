@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { Card, Col, Progress, Row, Statistic, Table, Typography, Empty, Spin } from "antd";
+import { Card, Col, Progress, Row, Statistic, Table, Tag, Typography, Empty, Spin } from "antd";
 import { gqlQuery } from "@/api/graphql";
+import { riskColor, riskLabel } from "@/utils/riskLabels";
 
 type Department = { id: string; name: string; code?: string };
 type User = { id: string; fullName?: string | null; department?: Department | null };
@@ -23,6 +24,8 @@ type Task = {
   title: string;
   progress?: number | null;
   estimatedHours?: number | null;
+  riskLevel?: number | null;
+  isOverdue?: boolean | null;
   status: TaskStatus;
   assignee?: User | null;
 };
@@ -63,7 +66,11 @@ export function AnalyticsPage() {
     )
       .then(async (res) => {
         const projectList = res.projects ?? [];
-        const projectStats = await Promise.all(projectList.map(loadProjectStats));
+        const projectStats = [];
+        for (const project of projectList) {
+          const stat = await loadProjectStats(project);
+          projectStats.push(stat);
+        }
         setStats(projectStats);
       })
       .catch(() => setStats([]))
@@ -75,19 +82,23 @@ export function AnalyticsPage() {
     const doneCount = stats.reduce((sum, item) => sum + item.done, 0);
     const estimated = stats.reduce((sum, item) => sum + item.estimatedHours, 0);
     const actual = stats.reduce((sum, item) => sum + item.actualHours, 0);
+    const overdue = stats.reduce((sum, item) => sum + item.tasks.filter((task) => task.isOverdue).length, 0);
+    const highRisk = stats.reduce((sum, item) => sum + item.tasks.filter((task) => (task.riskLevel ?? 0) >= 3).length, 0);
     const avgProgress = taskCount === 0 ? 0 : Math.round(stats.reduce((sum, item) => sum + item.avgProgress * item.tasks.length, 0) / taskCount);
-    return { taskCount, doneCount, estimated, actual, avgProgress };
+    return { taskCount, doneCount, estimated, actual, avgProgress, overdue, highRisk };
   }, [stats]);
 
   const peopleRows = useMemo(() => {
-    const grouped = new Map<string, { user: User; tasks: number; done: number; progress: number[]; hours: number }>();
+    const grouped = new Map<string, { user: User; tasks: number; done: number; progress: number[]; hours: number; risk: number[]; overdue: number }>();
     for (const item of stats) {
       for (const task of item.tasks) {
         const user = task.assignee ?? { id: "unassigned", fullName: "Без исполнителя", department: null };
-        const current = grouped.get(user.id) ?? { user, tasks: 0, done: 0, progress: [], hours: 0 };
+        const current = grouped.get(user.id) ?? { user, tasks: 0, done: 0, progress: [], hours: 0, risk: [], overdue: 0 };
         current.tasks += 1;
         current.done += task.status.isDone || task.status.code === "done" ? 1 : 0;
         current.progress.push(task.progress ?? 0);
+        current.risk.push(task.riskLevel ?? 0);
+        current.overdue += task.isOverdue ? 1 : 0;
         current.hours += hoursForTask(task.id, item.entries);
         grouped.set(user.id, current);
       }
@@ -95,18 +106,21 @@ export function AnalyticsPage() {
     return [...grouped.values()].map((row) => ({
       ...row,
       avgProgress: row.tasks === 0 ? 0 : Math.round(row.progress.reduce((sum, value) => sum + value, 0) / row.progress.length),
+      maxRisk: row.risk.length === 0 ? 0 : Math.max(...row.risk),
     }));
   }, [stats]);
 
   const departmentRows = useMemo(() => {
-    const grouped = new Map<string, { name: string; tasks: number; done: number; progress: number[]; hours: number }>();
+    const grouped = new Map<string, { name: string; tasks: number; done: number; progress: number[]; hours: number; risk: number[]; overdue: number }>();
     for (const item of stats) {
       for (const task of item.tasks) {
         const departmentName = task.assignee?.department?.name ?? "Без подразделения";
-        const current = grouped.get(departmentName) ?? { name: departmentName, tasks: 0, done: 0, progress: [], hours: 0 };
+        const current = grouped.get(departmentName) ?? { name: departmentName, tasks: 0, done: 0, progress: [], hours: 0, risk: [], overdue: 0 };
         current.tasks += 1;
         current.done += task.status.isDone || task.status.code === "done" ? 1 : 0;
         current.progress.push(task.progress ?? 0);
+        current.risk.push(task.riskLevel ?? 0);
+        current.overdue += task.isOverdue ? 1 : 0;
         current.hours += hoursForTask(task.id, item.entries);
         grouped.set(departmentName, current);
       }
@@ -114,6 +128,7 @@ export function AnalyticsPage() {
     return [...grouped.values()].map((row) => ({
       ...row,
       avgProgress: row.tasks === 0 ? 0 : Math.round(row.progress.reduce((sum, value) => sum + value, 0) / row.progress.length),
+      maxRisk: row.risk.length === 0 ? 0 : Math.max(...row.risk),
     }));
   }, [stats]);
 
@@ -125,6 +140,8 @@ export function AnalyticsPage() {
           <Col span={6}><Card><Statistic title="Задачи" value={totals.taskCount} /></Card></Col>
           <Col span={6}><Card><Statistic title="Выполнено" value={totals.doneCount} precision={0} /></Card></Col>
           <Col span={6}><Card><Statistic title="Средний прогресс" value={totals.avgProgress} suffix="%" /></Card></Col>
+          <Col span={6}><Card><Statistic title="Просрочено" value={totals.overdue} /></Card></Col>
+          <Col span={6}><Card><Statistic title="Высокий риск" value={totals.highRisk} /></Card></Col>
           <Col span={12}><Card><Statistic title="Оценка, ч" value={round(totals.estimated)} precision={1} /></Card></Col>
           <Col span={12}><Card><Statistic title="Факт, ч" value={round(totals.actual)} precision={1} /></Card></Col>
         </Row>
@@ -145,6 +162,11 @@ export function AnalyticsPage() {
                   { title: "Подразделение", dataIndex: ["project", "department", "name"], key: "department", render: (value?: string) => value ?? "—" },
                   { title: "Задачи", dataIndex: "tasks", key: "tasks", render: (_: unknown, record: ProjectStats) => record.tasks.length },
                   { title: "Готово", dataIndex: "done", key: "done" },
+                  { title: "Просрочено", key: "overdue", render: (_, record: ProjectStats) => record.tasks.filter((task) => task.isOverdue).length },
+                  { title: "Риск", key: "risk", render: (_, record: ProjectStats) => {
+                    const maxRisk = record.tasks.reduce((max, task) => Math.max(max, task.riskLevel ?? 0), 0);
+                    return <Tag color={riskColor(maxRisk)}>{riskLabel(maxRisk)}</Tag>;
+                  } },
                   { title: "Прогресс", dataIndex: "avgProgress", key: "progress", render: (value: number) => <Progress percent={value} size="small" /> },
                   { title: "Оценка/факт, ч", key: "hours", render: (_, record: ProjectStats) => `${round(record.estimatedHours)} / ${round(record.actualHours)}` },
                 ]}
@@ -164,6 +186,8 @@ export function AnalyticsPage() {
                       { title: "Подразделение", dataIndex: ["user", "department", "name"], key: "department", render: (value?: string) => value ?? "—" },
                       { title: "Задачи", dataIndex: "tasks", key: "tasks" },
                       { title: "Готово", dataIndex: "done", key: "done" },
+                      { title: "Просрочено", dataIndex: "overdue", key: "overdue" },
+                      { title: "Риск", dataIndex: "maxRisk", key: "risk", render: (value: number) => <Tag color={riskColor(value)}>{riskLabel(value)}</Tag> },
                       { title: "Прогресс", dataIndex: "avgProgress", key: "progress", render: (value: number) => <Progress percent={value} size="small" /> },
                       { title: "Часы", dataIndex: "hours", key: "hours", render: (value: number) => round(value) },
                     ]}
@@ -181,6 +205,8 @@ export function AnalyticsPage() {
                       { title: "Подразделение", dataIndex: "name", key: "name", render: (value: string) => <Text strong>{value}</Text> },
                       { title: "Задачи", dataIndex: "tasks", key: "tasks" },
                       { title: "Готово", dataIndex: "done", key: "done" },
+                      { title: "Просрочено", dataIndex: "overdue", key: "overdue" },
+                      { title: "Риск", dataIndex: "maxRisk", key: "risk", render: (value: number) => <Tag color={riskColor(value)}>{riskLabel(value)}</Tag> },
                       { title: "Прогресс", dataIndex: "avgProgress", key: "progress", render: (value: number) => <Progress percent={value} size="small" /> },
                       { title: "Часы", dataIndex: "hours", key: "hours", render: (value: number) => round(value) },
                     ]}
@@ -200,7 +226,7 @@ async function loadProjectStats(project: Project): Promise<ProjectStats> {
     gqlQuery<{ tasks: Task[] }>(
       `query ($projectId: ID!) {
         tasks(projectId: $projectId) {
-          id code title progress estimatedHours status { id name code isDone }
+          id code title progress estimatedHours riskLevel isOverdue status { id name code isDone }
           assignee { id fullName department { id name code } }
         }
       }`,

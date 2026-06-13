@@ -146,7 +146,6 @@ export function SiderMenu({ Title = ThemedTitleV2 }: SiderMenuProps) {
     localStorage.removeItem("ast3_access");
     localStorage.removeItem("ast3_refresh");
     navigate("/login");
-    window.location.href = "/login";
   };
 
   const menuTreeItems = useMemo(

@@ -1,7 +1,6 @@
 """GraphQL schema for projects domain."""
 from __future__ import annotations
 
-import asyncio
 import datetime
 from concurrent.futures import ThreadPoolExecutor
 
@@ -16,10 +15,11 @@ from .models import Project, ProjectMembership
 
 _executor = ThreadPoolExecutor(max_workers=8)
 
+
 def _run_sync(func, *args):
     return _executor.submit(func, *args).result()
 
-# Default workflow statuses created for every new project.
+
 DEFAULT_STATUSES = [
     ("backlog", "Backlog", "#6B7280", 0, False, False),
     ("todo", "To Do", "#3B82F6", 1, False, False),
@@ -121,30 +121,6 @@ class ProjectsMutation:
     def create_project(self, info: strawberry.types.Info, input: CreateProjectInput) -> ProjectType:
         return _run_sync(_create_project_sync, info, input)
 
-    def _create_project_sync(info: strawberry.types.Info, input: CreateProjectInput) -> ProjectType:
-        from permissions.helpers import require_role
-
-        require_role(info, "project_manager")
-        user = info.context.request.user
-        project = Project.objects.create(
-            code=input.code,
-            name=input.name,
-            description=input.description,
-            type=input.type,
-            planned_start=input.planned_start,
-            planned_end=input.planned_end,
-            lead_id=input.lead_id,
-            department_id=input.department_id,
-            created_by=user,
-        )
-        _create_default_statuses(project)
-        ProjectMembership.objects.get_or_create(
-            project=project,
-            user=user,
-            defaults={"role": ProjectMembership.OWNER},
-        )
-        return project  # type: ignore[return-value]
-
     @strawberry.mutation
     def update_project(
         self, info: strawberry.types.Info, id: strawberry.ID, input: UpdateProjectInput
@@ -162,6 +138,7 @@ class ProjectsMutation:
 
 def _create_project_sync(info: strawberry.types.Info, input: CreateProjectInput) -> ProjectType:
     from permissions.helpers import require_role
+    from audit.models import AuditLog
 
     require_role(info, "project_manager")
     user = info.context.request.user
@@ -182,6 +159,14 @@ def _create_project_sync(info: strawberry.types.Info, input: CreateProjectInput)
         user=user,
         defaults={"role": ProjectMembership.OWNER},
     )
+    AuditLog.log(
+        actor=user,
+        action="project.create",
+        resource_type="project",
+        resource_id=str(project.id),
+        payload={"code": project.code, "name": project.name},
+        request=info.context.request,
+    )
     return project  # type: ignore[return-value]
 
 
@@ -189,13 +174,22 @@ def _update_project_sync(
     info: strawberry.types.Info, id: strawberry.ID, input: UpdateProjectInput
 ) -> ProjectType:
     from permissions.helpers import require_project_access
+    from audit.models import AuditLog
 
     project = Project.objects.get(pk=id)
     require_project_access(info, project, min_role="manager")
-    for field, value in strawberry.asdict(input).items():
-        if value is not None:
-            setattr(project, field, value)
+    changes = {k: v for k, v in strawberry.asdict(input).items() if v is not None}
+    for field, value in changes.items():
+        setattr(project, field, value)
     project.save()
+    AuditLog.log(
+        actor=info.context.request.user,
+        action="project.update",
+        resource_type="project",
+        resource_id=str(project.id),
+        payload={"changes": {k: str(v) for k, v in changes.items()}},
+        request=info.context.request,
+    )
     return project  # type: ignore[return-value]
 
 
@@ -203,6 +197,7 @@ def _delete_project_sync(
     info: strawberry.types.Info, id: strawberry.ID
 ) -> ProjectsMutation.DeleteProjectPayload:
     from permissions.helpers import require_project_access
+    from audit.models import AuditLog
     from tasks.models import TaskStatus
 
     project = Project.objects.get(pk=id)
@@ -212,5 +207,12 @@ def _delete_project_sync(
         project.tasks.update(status_id=cancelled_status.id)
     project.status = Project.CANCELLED
     project.save(update_fields=["status", "updated_at"])
+    AuditLog.log(
+        actor=info.context.request.user,
+        action="project.delete",
+        resource_type="project",
+        resource_id=str(project.id),
+        payload={"project_code": project.code},
+        request=info.context.request,
+    )
     return ProjectsMutation.DeleteProjectPayload(success=True)
-

@@ -1,7 +1,6 @@
 """GraphQL schema for tasks domain."""
 from __future__ import annotations
 
-import asyncio
 import datetime
 from concurrent.futures import ThreadPoolExecutor
 
@@ -14,6 +13,7 @@ from accounts.schema import UserType
 from .models import Task, TaskDependency, TaskStatus
 
 _executor = ThreadPoolExecutor(max_workers=8)
+
 
 def _run_sync(func, *args):
     return _executor.submit(func, *args).result()
@@ -48,7 +48,8 @@ class TaskType:
     type: auto
     priority: auto
     progress: auto
-    risk_level: auto
+    risk_level: int
+    is_overdue: bool
     planned_start: auto
     planned_end: auto
     actual_start: auto
@@ -68,6 +69,36 @@ class TaskType:
     @strawberry.field
     def status_id(self) -> strawberry.ID:
         return strawberry.ID(str(self.status_id))
+
+    @strawberry.field
+    def risk_level(self) -> int:
+        if self.status_id is None or self.status_id == 0:
+            return 0
+        if self.status.code in {"done", "cancelled"}:
+            return 0
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        planned_end = self.planned_end
+        if planned_end and planned_end < now:
+            return 3
+        if planned_end and (planned_end - now).total_seconds() <= 2 * 24 * 3600 and (self.progress or 0) < 50:
+            return 2
+        if self.planned_start and planned_end:
+            total = max(1, (planned_end - self.planned_start).total_seconds())
+            elapsed = max(0, (now - self.planned_start).total_seconds())
+            expected_progress = min(100, round((elapsed / total) * 100))
+            if expected_progress - (self.progress or 0) >= 35:
+                return 2
+            if expected_progress - (self.progress or 0) >= 20:
+                return 1
+        return 0
+
+    @strawberry.field
+    def is_overdue(self) -> bool:
+        if self.status_id is None or self.status_id == 0:
+            return False
+        if self.status.code in {"done", "cancelled"}:
+            return False
+        return bool(self.planned_end and self.planned_end < datetime.datetime.now(tz=datetime.timezone.utc))
 
     @strawberry.field
     def dependencies(self, root: Task) -> list[TaskDependencyType]:
@@ -169,6 +200,7 @@ class TasksMutation:
 
 def _create_task_sync(info: strawberry.types.Info, input: CreateTaskInput) -> TaskType:
     from permissions.helpers import require_project_member
+    from audit.models import AuditLog
 
     require_project_member(info, project_id=input.project_id)
     task = Task(
@@ -186,6 +218,14 @@ def _create_task_sync(info: strawberry.types.Info, input: CreateTaskInput) -> Ta
     )
     task.code = task.generate_code()
     task.save()
+    AuditLog.log(
+        actor=info.context.request.user,
+        action="task.create",
+        resource_type="task",
+        resource_id=str(task.id),
+        payload={"code": task.code, "project_id": input.project_id},
+        request=info.context.request,
+    )
     return task  # type: ignore[return-value]
 
 
@@ -193,13 +233,22 @@ def _update_task_sync(
     info: strawberry.types.Info, id: strawberry.ID, input: UpdateTaskInput
 ) -> TaskType:
     from permissions.helpers import require_project_member
+    from audit.models import AuditLog
 
     task = Task.objects.select_related("project").get(pk=id)
     require_project_member(info, project_id=str(task.project_id))
-    for field, value in strawberry.asdict(input).items():
-        if value is not None:
-            setattr(task, field, value)
+    changes = {k: v for k, v in strawberry.asdict(input).items() if v is not None}
+    for field, value in changes.items():
+        setattr(task, field, value)
     task.save()
+    AuditLog.log(
+        actor=info.context.request.user,
+        action="task.update",
+        resource_type="task",
+        resource_id=str(task.id),
+        payload={"changes": {k: str(v) for k, v in changes.items()}},
+        request=info.context.request,
+    )
     return task  # type: ignore[return-value]
 
 
@@ -210,12 +259,21 @@ def _move_task_sync(
     board_order: float,
 ) -> TaskType:
     from permissions.helpers import require_project_member
+    from audit.models import AuditLog
 
     task = Task.objects.select_related("project").get(pk=task_id)
     require_project_member(info, project_id=str(task.project_id))
     task.status_id = status_id
     task.board_order = board_order
     task.save(update_fields=["status_id", "board_order", "updated_at"])
+    AuditLog.log(
+        actor=info.context.request.user,
+        action="task.move",
+        resource_type="task",
+        resource_id=str(task.id),
+        payload={"status_id": str(status_id), "board_order": board_order},
+        request=info.context.request,
+    )
     return task  # type: ignore[return-value]
 
 
@@ -224,6 +282,7 @@ def _delete_task_sync(
     id: strawberry.ID,
 ) -> TasksMutation.DeleteTaskPayload:
     from permissions.helpers import require_project_member
+    from audit.models import AuditLog
 
     task = Task.objects.select_related("project").get(pk=id)
     require_project_member(info, project_id=str(task.project_id))
@@ -238,5 +297,12 @@ def _delete_task_sync(
     else:
         task.delete()
 
+    AuditLog.log(
+        actor=info.context.request.user,
+        action="task.delete",
+        resource_type="task",
+        resource_id=str(task.id),
+        payload={"project_id": str(task.project_id)},
+        request=info.context.request,
+    )
     return TasksMutation.DeleteTaskPayload(success=True)
-

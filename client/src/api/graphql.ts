@@ -18,12 +18,17 @@ export const client = new GraphQLClient(GRAPHQL_URL, {
   },
 });
 
+let refreshPromise: Promise<boolean> | null = null;
+
 export async function gqlQuery<T = unknown>(query: string, variables?: Record<string, unknown>): Promise<T> {
   try {
     return await client.request<T>(query, variables);
   } catch (error) {
-    if (isUnauthorized(error) && (await refreshAccessToken())) {
-      return client.request<T>(query, variables);
+    if (isUnauthorized(error)) {
+      const refreshed = await deduplicatedRefresh();
+      if (refreshed) {
+        return client.request<T>(query, variables);
+      }
     }
     throw error;
   }
@@ -36,12 +41,21 @@ function isUnauthorized(error: unknown) {
   return status === 401 || /expired|unauthorized|Authentication required|AnonymousUser/i.test(message);
 }
 
-async function refreshAccessToken() {
+function deduplicatedRefresh(): Promise<boolean> {
+  if (refreshPromise) {
+    return refreshPromise;
+  }
+  refreshPromise = doRefreshAccessToken().finally(() => {
+    refreshPromise = null;
+  });
+  return refreshPromise;
+}
+
+async function doRefreshAccessToken() {
   const refresh = localStorage.getItem(REFRESH_TOKEN_KEY);
   if (!refresh) {
     localStorage.removeItem(ACCESS_TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
-    window.location.href = "/login";
     return false;
   }
 
@@ -66,7 +80,6 @@ async function refreshAccessToken() {
   } catch {
     localStorage.removeItem(ACCESS_TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
-    window.location.href = "/login";
     return false;
   }
 }

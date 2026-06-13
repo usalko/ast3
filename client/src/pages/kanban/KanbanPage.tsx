@@ -4,6 +4,7 @@ import { DragDropContext, Draggable, Droppable, type DropResult } from "@hello-p
 import { Card, Select, Tag, Space, Typography, Empty, Progress, Button, message, Spin } from "antd";
 import { Link } from "react-router-dom";
 import { gqlQuery } from "@/api/graphql";
+import { riskColor, riskLabel } from "@/utils/riskLabels";
 import { statusLabel } from "@/utils/statusLabels";
 
 type Project = { id: string; code?: string; name: string };
@@ -14,6 +15,8 @@ type Task = {
   code?: string;
   title: string;
   progress?: number | null;
+  riskLevel?: number | null;
+  isOverdue?: boolean | null;
   status: TaskStatus;
   assignee?: User | null;
   plannedStart?: string | null;
@@ -55,7 +58,7 @@ export function KanbanPage() {
       `query ($projectId: ID!) {
         project(id: $projectId) { id statuses { id name code color isDone } }
         tasks(projectId: $projectId) {
-          id code title progress status { id name code color isDone }
+          id code title progress riskLevel isOverdue status { id name code color isDone }
           assignee { id fullName } plannedStart plannedEnd
         }
       }`,
@@ -85,7 +88,11 @@ export function KanbanPage() {
     for (const [statusId, items] of grouped) {
       grouped.set(
         statusId,
-        items.sort((a, b) => Number(a.plannedStart ?? "") > Number(b.plannedStart ?? "") ? 1 : -1)
+        items.sort((a, b) => {
+          const dateA = a.plannedStart ? Date.parse(a.plannedStart) : 0;
+          const dateB = b.plannedStart ? Date.parse(b.plannedStart) : 0;
+          return dateA - dateB;
+        }),
       );
     }
     return grouped;
@@ -211,10 +218,13 @@ export function KanbanPage() {
                                   }
                                   extra={<Link to={`/tasks/${task.id}`}><Button type="link">Открыть</Button></Link>}
                                 >
-                                  <Space direction="vertical" size={8} style={{ width: "100%" }}>
-                                      <Text type="secondary">Исполнитель: {task.assignee?.fullName ?? "Без исполнителя"}</Text>
+                                    <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                                      <Space wrap>
+                                        <Text type="secondary">Исполнитель: {task.assignee?.fullName ?? "Без исполнителя"}</Text>
+                                        <Tag color={riskColor(task.riskLevel)}>{task.isOverdue ? "Просрочено" : riskLabel(task.riskLevel)}</Tag>
+                                      </Space>
+                                      <Progress percent={task.progress ?? 0} size="small" />
 
-                                    <Progress percent={task.progress ?? 0} size="small" />
                                     <Select
                                       size="small"
                                       value={task.progress ?? 0}

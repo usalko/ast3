@@ -1,8 +1,7 @@
 ﻿import { useEffect, useMemo, useState } from "react";
 import { Card, Col, Progress, Row, Statistic, Table, Tag, Typography, Empty, Spin, Tooltip } from "antd";
-import { CheckCircleFilled, ClockCircleFilled, ExclamationCircleFilled, ProjectFilled, UnorderedListOutlined, UserOutlined, TeamOutlined } from "@ant-design/icons";
+import { CheckCircleFilled, ClockCircleFilled, ExclamationCircleFilled, ProjectFilled, UnorderedListOutlined, UserOutlined, TeamOutlined, FireOutlined } from "@ant-design/icons";
 import { gqlQuery } from "@/api/graphql";
-import { riskColor, riskLabel } from "@/utils/riskLabels";
 
 type Department = { id: string; name: string; code?: string };
 type User = { id: string; fullName?: string | null; department?: Department | null };
@@ -17,7 +16,7 @@ type Task = {
   id: string; code?: string; title: string; progress?: number | null;
   estimatedHours?: number | null; priority?: number;
   isOverdue?: boolean | null; status: TaskStatus;
-  assignee?: User | null;
+  assignee?: User | null; project?: { id: string; code?: string; name: string } | null;
 };
 type TimeEntry = {
   id: string; durationMinutes?: number | null; durationHours?: number | null;
@@ -100,7 +99,21 @@ export function AnalyticsPage() {
     }).catch((err) => { console.error("[Analytics] fail:", err); setLoading(false); });
   }, []);
 
-  const allTasks = useMemo(() => Object.values(tasksByProject).flat().filter((t) => t.status.code !== "backlog"), [tasksByProject]);
+  const allTasks = useMemo(() => {
+    const projectMap = new Map(projects.map((p) => [p.id, p]));
+    const flat: Task[] = [];
+    for (const pid of Object.keys(tasksByProject)) {
+      const project = projectMap.get(pid);
+      for (const t of tasksByProject[pid] ?? []) {
+        if (t.status.code !== "backlog") {
+          flat.push({ ...t, project });
+        }
+      }
+    }
+    return flat;
+  }, [tasksByProject, projects]);
+
+  const highPriorityTasksList = useMemo(() => allTasks.filter((t) => (t.priority ?? 0) >= 3), [allTasks]);
   const activeProjects = useMemo(() => projects.filter((p) => p.status === "active"), [projects]);
 
   const timeline = useMemo(() => {
@@ -236,12 +249,29 @@ export function AnalyticsPage() {
           <Col xs={12} lg={3}><Card size="small"><Statistic title="Высокий приоритет" value={totals.highPriorityCount} prefix={<ExclamationCircleFilled />} /></Card></Col>
           <Col xs={12} lg={3}><Card size="small"><Statistic title="Прогресс" value={totals.avgProgress} suffix="%" /></Card></Col>
           <Col xs={12} lg={3}><Card size="small"><Statistic title="Часов всего" value={round(totals.actualHours)} precision={1} /></Card></Col>
-        </Row>
+</Row>
 
         {projects.length === 0 && !loading ? (
           <Empty description="Нет данных" style={{ marginTop: 48 }} />
         ) : (
           <>
+            {highPriorityTasksList.length > 0 && (
+              <Card title={<span><FireOutlined style={{ marginRight: 6 }} /> Задачи высокого приоритета</span>} style={{ marginTop: 16 }}>
+                <Table rowKey="id" dataSource={highPriorityTasksList} pagination={{ pageSize: 10, size: "small" }} size="small"
+columns={[
+                      { title: "Код", dataIndex: "code", key: "code", render: (v) => <Tag color="default">{v}</Tag>, width: 80 },
+                      { title: "Задача", dataIndex: "title", key: "title", ellipsis: true, render: (v) => <span style={{ paddingLeft: 10 }}>{v}</span> },
+                      { title: "Проект", key: "project", render: (_, r) => <span><Text strong>{r.project?.code}</Text> <Text type="secondary" style={{ fontSize: 12 }}>{r.project?.name}</Text></span> },
+                      { title: "Прогресс", dataIndex: "progress", key: "progress", render: (v) => <Progress percent={v ?? 0} size="small" />, width: 100 },
+                      { title: "Статус", key: "status", render: (_, r) => <Tag color={r.status.isDone ? "green" : r.status.isCancelled ? "default" : "blue"}>{r.status.name}</Tag>, width: 90 },
+                      { title: "Исполнитель", key: "assignee", render: (_, r) => r.assignee?.fullName ?? "—" },
+                      { title: "Просрочена", key: "overdue", render: (_, r) => r.isOverdue ? <Tag color="red">Да</Tag> : <Tag color="green">Нет</Tag>, width: 80 },
+                    ]}
+                  locale={{ emptyText: "Нет задач высокого приоритета" }}
+                />
+              </Card>
+            )}
+
             {timeline.sortedMonths.length > 0 && (
               <Card title="Календарь проектов" style={{ marginTop: 16 }}>
                 <div style={{ overflowX: "auto" }}>

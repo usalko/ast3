@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { Card, Descriptions, List, Button, Modal, Form, Input, DatePicker, message, Select, Tag, Progress, Popconfirm } from "antd";
+import { Card, Descriptions, List, Button, Modal, Form, Input, DatePicker, message, Select, Tag, Progress, Popconfirm, Switch } from "antd";
 import { gqlQuery } from "@/api/graphql";
 import { riskColor, riskLabel } from "@/utils/riskLabels";
 import { statusLabel } from "@/utils/statusLabels";
@@ -15,7 +15,7 @@ type Task = {
   isOverdue?: boolean | null;
   status?: { id: string; name: string; code?: string; color?: string | null } | null;
 };
-type Project = { id: string; code?: string; name: string; description?: string };
+type Project = { id: string; code?: string; name: string; description?: string; status?: string };
 
 export function ProjectShow() {
   const { id } = useParams<{ id: string }>();
@@ -27,7 +27,7 @@ export function ProjectShow() {
   function loadData(projectId: string) {
     gqlQuery<{ project: Project; tasks: Task[] }>(
       `query ($id: ID!) {
-        project(id: $id) { id code name description }
+        project(id: $id) { id code name description status }
         tasks(projectId: $id) { id title plannedStart plannedEnd progress priority isOverdue status { id name code color } }
       }`,
       { id: projectId }
@@ -57,6 +57,23 @@ export function ProjectShow() {
     }
   }
 
+  async function handleToggleStatus(checked: boolean) {
+    if (!id || !project) return;
+    try {
+      await gqlQuery(
+        `mutation ($id: ID!, $input: UpdateProjectInput!) {
+          updateProject(id: $id, input: $input) { id status }
+        }`,
+        { id, input: { status: checked ? "active" : "on_hold" } }
+      );
+      setProject({ ...project, status: checked ? "active" : "on_hold" });
+      message.success(`Проект ${checked ? "активирован" : "деактивирован"}`);
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : "";
+      message.error(`Не удалось изменить статус${detail ? `: ${detail}` : ""}`);
+    }
+  }
+
   if (!project) return <div style={{ padding: 16 }}>Загрузка...</div>;
 
   return (
@@ -64,6 +81,12 @@ export function ProjectShow() {
       <Card title={`${project.code ?? ""} — ${project.name}`}>
         <Descriptions bordered>
           <Descriptions.Item label="Описание" span={3}>{project.description}</Descriptions.Item>
+          <Descriptions.Item label="Статус">
+            <Switch checked={project.status !== "on_hold" && project.status !== "cancelled"} onChange={handleToggleStatus} />
+            <Tag color={project.status === "active" ? "blue" : "default"} style={{ marginLeft: 8 }}>
+              {project.status === "active" ? "Активен" : "Неактивен"}
+            </Tag>
+          </Descriptions.Item>
         </Descriptions>
       </Card>
 

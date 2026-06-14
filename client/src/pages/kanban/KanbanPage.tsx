@@ -131,10 +131,23 @@ export function KanbanPage() {
         return next;
       });
       message.success("Статус задачи обновлён");
-    } catch (err) {
-      const detail = err instanceof Error ? err.message : "";
-      message.error(`Не удалось переместить задачу${detail ? `: ${detail}` : ""}`);
-    }
+} catch (err) {
+       const detail = err instanceof Error ? err.message : "";
+       message.error(`Не удалось переместить задачу${detail ? `: ${detail}` : ""}`);
+     }
+     if (status?.isDone && task) {
+       try {
+         await gqlQuery(
+           `mutation ($id: ID!, $input: UpdateTaskInput!) {
+             updateTask(id: $id, input: $input) { id progress }
+           }`,
+           { id: task.id, input: { progress: 100 } }
+         );
+         setTasks((current) => current.map((t) => (t.id === task.id ? { ...t, progress: 100 } : t)));
+       } catch {
+         // Progress update failed silently after status change
+       }
+     }
   }
 
   async function handleProgressChange(taskId: string, progress: number) {

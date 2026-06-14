@@ -151,12 +151,17 @@ export function TimeTrackingPage() {
     }
   }, [projectId]);
 
+  const visibleTasks = useMemo(
+    () => tasks.filter((t) => !activeTimers.some((tm) => tm.task.id === t.id)),
+    [tasks, activeTimers]
+  );
+
   const taskOptions = useMemo(
-    () => tasks.map((task) => ({
+    () => visibleTasks.map((task) => ({
       label: `${task.code ? `[${task.code}] ` : ""}${task.title}`,
       value: task.id,
     })),
-    [tasks]
+    [visibleTasks]
   );
 
   const totals = useMemo(() => {
@@ -178,6 +183,7 @@ export function TimeTrackingPage() {
         { taskId }
       );
       setActiveTimers((current) => [res.startTimer, ...current]);
+      setTasks((current) => current.filter((t) => t.id !== taskId));
       message.success("Таймер запущен");
     } catch (err) {
       const detail = err instanceof Error ? err.message : "";
@@ -193,6 +199,14 @@ export function TimeTrackingPage() {
       );
       setActiveTimers((current) => current.filter((item) => item.id !== timerId));
       setEntries((current) => [res.stopTimer, ...current]);
+      // Re-fetch the task to add it back to visible list
+      const taskRes = await gqlQuery<{ task: Task }>(
+        `query ($id: ID!) { task(id: $id) { id code title progress estimatedHours priority isOverdue status { id name } assignee { id fullName } } }`,
+        { id: res.stopTimer.task.id }
+      );
+      if (taskRes?.task) {
+        setTasks((current) => current.some((t) => t.id === taskRes.task.id) ? current : [...current, taskRes.task]);
+      }
       message.success("Таймер остановлен");
     } catch (err) {
       const detail = err instanceof Error ? err.message : "";
@@ -268,7 +282,7 @@ export function TimeTrackingPage() {
           <Card title="Задачи проекта" loading={loading}>
             <Table
               rowKey="id"
-              dataSource={tasks}
+              dataSource={visibleTasks}
               pagination={false}
               size="small"
               columns={[

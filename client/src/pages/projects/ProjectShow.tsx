@@ -122,7 +122,7 @@ function TaskCreateForm({ projectId, onCreated }: { projectId: string; onCreated
     gqlQuery<{ project: { statuses: Array<{ id: string; name: string; code?: string }> } }>(
       `query ($id: ID!) { project(id: $id) { statuses { id name code } } }`,
       { id: projectId }
-    ).then((res) => setStatuses(res.project?.statuses ?? []));
+    ).then((res) => setStatuses((res.project?.statuses ?? []).filter((s) => s.code !== "backlog")));
   }, [projectId]);
 
   async function onFinish(values: Record<string, unknown>) {

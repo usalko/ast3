@@ -163,8 +163,8 @@ export function dataProvider(url: string): DataProvider {
           return { data: data as never, ...(variables?.meta ?? {}) };
         }
         case "tasks": {
-          const mutation = `mutation DeleteTask($id: ID!) { deleteTask(id: $id) { success } }`;
-          const { data } = await asBaseMutation<{ success: boolean }>(mutation, { id }, "deleteTask");
+          const mutation = `mutation DeleteTask($id: ID!) { deleteTask(id: $id) }`;
+          const { data } = await asBaseMutation<boolean>(mutation, { id }, "deleteTask");
           return { data: data as never, ...(variables?.meta ?? {}) };
         }
         default:

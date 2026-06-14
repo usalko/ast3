@@ -9,7 +9,6 @@ from strawberry import auto
 
 from .models import Department, User
 
-
 @strawberry_django.type(User)
 class UserType:
     id: auto
@@ -73,8 +72,11 @@ class AccountsMutation:
 
     @strawberry.mutation
     def refresh_access_token(self, refresh: str) -> TokenPair:
-        token = RefreshToken(refresh)
-        return TokenPair(access=str(token.access_token), refresh=str(token))
+        from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+
+        serializer = TokenRefreshSerializer()
+        data = serializer.validate({"refresh": refresh})
+        return TokenPair(access=data["access"], refresh=data["refresh"])
 
     @strawberry.mutation
     def register(self, email: str, password: str, first_name: str, last_name: str, patronymic: str = "") -> UserType:
@@ -129,22 +131,71 @@ class AccountsMutation:
         return user  # type: ignore[return-value]
 
     @strawberry.mutation
-    def change_password(self, info: strawberry.types.Info, old_password: str, new_password: str) -> bool:
+    def delete_user(self, info: strawberry.types.Info, user_id: strawberry.ID) -> bool:
         from audit.models import AuditLog
+        from projects.models import Project
+        from tasks.models import Task, Comment, Attachment
+        from django.db import transaction
 
-        user = info.context.request.user
-        if user.is_anonymous:
+        caller = info.context.request.user
+        if caller.is_anonymous:
             raise Exception("Not authenticated")
-        if not user.check_password(old_password):
-            raise Exception("Invalid old password")
-        user.set_password(new_password)
-        user.save(update_fields=["password", "updated_at"])
+        if not caller.is_staff and str(caller.id) != str(user_id):
+            raise Exception("Forbidden")
+        user = User.objects.get(pk=user_id)
+
+        with transaction.atomic():
+            # Delete all tasks in projects created by user first (to allow project deletion)
+            created_project_ids = list(Project.objects.filter(created_by=user).values_list("id", flat=True))
+            Task.objects.filter(project_id__in=created_project_ids).delete()
+
+            # Delete tasks where user is reporter (those not in user's projects)
+            Task.objects.filter(reporter=user).delete()
+
+            # Delete projects created by user
+            Project.objects.filter(created_by=user).delete()
+
+            # Delete comments and attachments authored/uploaded by user
+            Comment.objects.filter(author=user).delete()
+            Attachment.objects.filter(uploaded_by=user).delete()
+
+            user.delete()
+
         AuditLog.log(
-            actor=user,
-            action="auth.change_password",
+            actor=caller,
+            action="auth.delete_user",
             resource_type="user",
-            resource_id=str(user.id),
-            payload={},
+            resource_id=str(user_id),
+            payload={"email": user.email},
             request=info.context.request,
         )
         return True
+
+    @strawberry.mutation
+    def add_employee(self, info: strawberry.types.Info, first_name: str, last_name: str, email: str) -> UserType:
+        from audit.models import AuditLog
+        from .models import Role, RoleAssignment
+
+        caller = info.context.request.user
+        if caller.is_anonymous or not caller.is_staff:
+            raise Exception("Forbidden")
+        if User.objects.filter(email=email).exists():
+            raise Exception("User with this email already exists")
+        user = User.objects.create_user(
+            email=email,
+            password="ChangeMe123!",
+            first_name=first_name,
+            last_name=last_name,
+            is_active=True,
+        )
+        developer_role, _ = Role.objects.get_or_create(code="developer", defaults={"name": "Developer", "scope": Role.GLOBAL})
+        RoleAssignment.objects.create(user=user, role=developer_role, department=None, project_id=None)
+        AuditLog.log(
+            actor=caller,
+            action="auth.add_employee",
+            resource_type="user",
+            resource_id=str(user.id),
+            payload={"email": user.email, "first_name": first_name, "last_name": last_name},
+            request=info.context.request,
+        )
+        return user  # type: ignore[return-value]

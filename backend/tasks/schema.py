@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import datetime
+import typing
 from concurrent.futures import ThreadPoolExecutor
 
 import strawberry
@@ -10,7 +11,7 @@ from strawberry import auto
 
 from accounts.schema import UserType
 
-from .models import Task, TaskDependency, TaskStatus
+from .models import Task, TaskDependency, TaskStatus, TaskAssignment
 
 _executor = ThreadPoolExecutor(max_workers=8)
 
@@ -61,6 +62,14 @@ class TaskType:
     status: TaskStatusType
     assignee: UserType | None
     reporter: UserType | None
+
+    @strawberry.field
+    def assignees(self, root: Task) -> list[UserType]:
+        return [a.user for a in TaskAssignment.objects.filter(task=root).select_related("user")]
+
+    @strawberry.field
+    def assignee_ids(self, root: Task) -> list[str]:
+        return list(TaskAssignment.objects.filter(task=root).values_list("user_id", flat=True))
 
     @strawberry.field
     def project_id(self) -> strawberry.ID:
@@ -162,6 +171,10 @@ class TasksQuery:
             .prefetch_related("dependencies__predecessor", "dependencies__successor")
         )
 
+    @strawberry_django.field
+    def tasks_all(self) -> list[TaskType]:
+        return Task.objects.all().select_related("status", "project", "assignee")
+
 
 @strawberry.type
 class TasksMutation:
@@ -185,17 +198,49 @@ class TasksMutation:
     ) -> TaskType:
         return _run_sync(_move_task_sync, info, task_id, status_id, board_order)
 
-    @strawberry.type
-    class DeleteTaskPayload:
-        success: bool
-
     @strawberry.mutation
     def delete_task(
         self,
         info: strawberry.types.Info,
         id: strawberry.ID,
-    ) -> TasksMutation.DeleteTaskPayload:
+    ) -> bool:
         return _run_sync(_delete_task_sync, info, id)
+
+    @strawberry.mutation
+    def add_task_assignee(self, info: strawberry.types.Info, task_id: strawberry.ID, user_id: strawberry.ID) -> bool:
+        from audit.models import AuditLog
+
+        try:
+            task = Task.objects.get(pk=task_id)
+            user = info.context.request.user
+            TaskAssignment.objects.get_or_create(task=task, user_id=user_id)
+            AuditLog.log(actor=user, action="task.add_assignee", resource_type="task", resource_id=str(task_id), payload={"user_id": str(user_id)}, request=info.context.request)
+            return True
+        except Task.DoesNotExist:
+            raise Exception("Task not found")
+
+    @strawberry.mutation
+    def remove_task_assignee(self, info: strawberry.types.Info, task_id: strawberry.ID, user_id: strawberry.ID) -> bool:
+        from audit.models import AuditLog
+
+        deleted, _ = TaskAssignment.objects.filter(task_id=task_id, user_id=user_id).delete()
+        if deleted:
+            AuditLog.log(actor=info.context.request.user, action="task.remove_assignee", resource_type="task", resource_id=str(task_id), payload={"user_id": str(user_id)}, request=info.context.request)
+        return deleted > 0
+
+    @strawberry.mutation
+    def set_task_assignees(self, info: strawberry.types.Info, task_id: strawberry.ID, user_ids: list[strawberry.ID]) -> bool:
+        from audit.models import AuditLog
+
+        try:
+            task = Task.objects.get(pk=task_id)
+        except Task.DoesNotExist:
+            raise Exception("Task not found")
+        TaskAssignment.objects.filter(task=task).delete()
+        for uid in user_ids:
+            TaskAssignment.objects.create(task=task, user_id=uid)
+        AuditLog.log(actor=info.context.request.user, action="task.set_assignees", resource_type="task", resource_id=str(task_id), payload={"user_ids": [str(u) for u in user_ids]}, request=info.context.request)
+        return True
 
 
 def _create_task_sync(info: strawberry.types.Info, input: CreateTaskInput) -> TaskType:
@@ -280,7 +325,7 @@ def _move_task_sync(
 def _delete_task_sync(
     info: strawberry.types.Info,
     id: strawberry.ID,
-) -> TasksMutation.DeleteTaskPayload:
+) -> bool:
     from permissions.helpers import require_project_member
     from audit.models import AuditLog
 
@@ -305,4 +350,4 @@ def _delete_task_sync(
         payload={"project_id": str(task.project_id)},
         request=info.context.request,
     )
-    return TasksMutation.DeleteTaskPayload(success=True)
+    return True

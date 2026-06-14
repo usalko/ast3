@@ -98,9 +98,10 @@ export function KanbanPage() {
     return grouped;
   }, [statuses, tasks]);
 
-  const totalTasks = tasks.length;
+  const totalTasks = tasks.filter((task) => task.status?.code !== "backlog").length;
   const doneTasks = tasks.filter((task) => task.status?.isDone || task.status?.code === "done").length;
-  const avgProgress = totalTasks === 0 ? 0 : Math.round(tasks.reduce((sum, task) => sum + (task.progress ?? 0), 0) / totalTasks);
+  const visibleTasks = tasks.filter((task) => task.status?.code !== "backlog");
+  const avgProgress = visibleTasks.length === 0 ? 0 : Math.round(visibleTasks.reduce((sum, task) => sum + (task.progress ?? 0), 0) / visibleTasks.length);
 
   async function handleDragEnd(result: DropResult) {
     if (!result.destination) {
@@ -175,7 +176,7 @@ export function KanbanPage() {
         <Spin spinning={loading}>
           <DragDropContext onDragEnd={handleDragEnd}>
             <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8 }}>
-              {statuses.map((status) => (
+              {statuses.filter((s) => s.code !== "backlog").map((status) => (
                 <Droppable droppableId={status.id} key={status.id}>
                   {(provided) => {
                     const columnTasks = tasksByStatus.get(status.id) ?? [];
@@ -190,7 +191,7 @@ export function KanbanPage() {
                           </Space>
                         }
                         style={{ minWidth: 280, maxWidth: 340, backgroundColor: "#fafafa" }}
-                        bodyStyle={{ minHeight: 260, padding: 8 }}
+styles={{ body: { minHeight: 260, padding: 8 } }}
                         ref={provided.innerRef}
                         {...provided.droppableProps}
                       >

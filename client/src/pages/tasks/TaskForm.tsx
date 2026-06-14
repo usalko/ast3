@@ -15,9 +15,9 @@ type Task = {
   estimatedHours?: number | null;
   projectId?: string;
   statusId?: string;
-  assigneeId?: string;
   type?: string;
   progress?: number;
+  assigneeIds?: string[];
 };
 type TaskFormValues = Omit<Task, "plannedStart" | "plannedEnd"> & {
   plannedStart?: Dayjs | null;
@@ -34,32 +34,41 @@ export function TaskForm() {
   const [statuses, setStatuses] = useState<TaskStatus[]>([]);
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [users, setUsers] = useState<User[]>([]);
-
-  useEffect(() => {
-    gqlQuery<{ projects: ProjectOption[] }>(`query { projects { id code name } }`)
-      .then((res) => setProjects(res.projects ?? []))
-      .catch(() => setProjects([]));
-    gqlQuery<{ users: User[] }>(`query { users { id fullName } }`)
-      .then((res) => setUsers(res.users ?? []))
-      .catch(() => setUsers([]));
-  }, []);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!id) return;
-    gqlQuery<{ task: Task }>(`query ($id: ID!) { task(id: $id) { id title description plannedStart plannedEnd estimatedHours projectId statusId assigneeId type progress } }`, { id }).then((res) => {
+    gqlQuery<{ task: Task & { assigneeIds?: string[] } }>(`query ($id: ID!) { task(id: $id) { id title description plannedStart plannedEnd estimatedHours projectId statusId assigneeIds type progress } }`, { id }).then(async (res) => {
       const t = res.task;
+      if (t?.projectId) {
+        await handleProjectChange(t.projectId);
+      }
       form.setFieldsValue({
         ...t,
+        assigneeIds: t.assigneeIds ?? [],
         plannedStart: t?.plannedStart ? dayjs(t.plannedStart) : undefined,
         plannedEnd: t?.plannedEnd ? dayjs(t.plannedEnd) : undefined,
       });
-      if (t?.projectId) {
-        void handleProjectChange(t.projectId);
-      }
+    }).catch((err) => {
+      console.error("[TaskForm] failed to load task:", err);
     });
   }, [id, form]);
 
+  useEffect(() => {
+    if (id) return;
+    gqlQuery<{ projects: ProjectOption[] }>(`query { projects { id code name } }`)
+      .then((res) => setProjects(res.projects ?? []))
+      .catch(() => setProjects([]));
+  }, [id]);
+
+  useEffect(() => {
+    gqlQuery<{ users: { id: string; fullName: string; roles?: string[] }[] }>(`query { users { id fullName roles } }`)
+      .then((res) => setUsers((res.users ?? []).filter((u) => !(u.roles ?? []).includes("admin"))))
+      .catch(() => setUsers([]));
+  }, []);
+
   async function onFinish(values: TaskFormValues) {
+    setSaving(true);
     try {
       const input: Record<string, unknown> = {
         title: values.title,
@@ -68,26 +77,31 @@ export function TaskForm() {
         plannedEnd: values.plannedEnd ? values.plannedEnd.toISOString() : null,
         estimatedHours: values.estimatedHours ?? null,
         statusId: values.statusId,
-        assigneeId: values.assigneeId,
         type: values.type,
       };
 
       if (id) {
         input.progress = values.progress;
-      }
-
-      if (id) {
         await gqlQuery(`mutation ($id: ID!, $input: UpdateTaskInput!) { updateTask(id: $id, input: $input) { id } }`, { id, input });
-        message.success("Задача обновлена");
       } else {
         const createInput = { ...input, projectId: values.projectId };
         await gqlQuery(`mutation ($input: CreateTaskInput!) { createTask(input: $input) { id } }`, { input: createInput });
-        message.success("Задача создана");
       }
+
+      if (id) {
+        await gqlQuery(`mutation ($taskId: ID!, $userIds: [ID!]!) { setTaskAssignees(taskId: $taskId, userIds: $userIds) }`, {
+          taskId: id,
+          userIds: values.assigneeIds ?? [],
+        });
+      }
+
+      message.success(id ? "Задача обновлена" : "Задача создана");
       navigate(-1);
     } catch (err) {
       const detail = err instanceof Error ? err.message : "";
       message.error(`Ошибка при сохранении задачи${detail ? `: ${detail}` : ""}`);
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -101,7 +115,7 @@ export function TaskForm() {
         `query ($id: ID!) { project(id: $id) { statuses { id name code } } }`,
         { id: projectId }
       );
-      setStatuses(res.project?.statuses ?? []);
+      setStatuses((res.project?.statuses ?? []).filter((s) => s.code !== "backlog"));
     } catch {
       message.error("Не удалось загрузить статусы проекта");
     }
@@ -110,7 +124,7 @@ export function TaskForm() {
   return (
     <div style={{ padding: 16 }}>
       <Card title={id ? "Редактировать задачу" : "Создать задачу"}>
-        <Form form={form} layout="vertical" onFinish={onFinish} initialValues={{ title: "", description: "", estimatedHours: null, type: "software", progress: 0 }}>
+        <Form form={form} layout="vertical" onFinish={onFinish} initialValues={{ title: "", description: "", estimatedHours: null, type: "software", progress: 0, assigneeIds: [] }}>
           {!id && (
             <Form.Item name="projectId" label="Проект" rules={[{ required: true, message: "Выберите проект" }]}>
               <Select
@@ -121,7 +135,10 @@ export function TaskForm() {
             </Form.Item>
           )}
           <Form.Item name="statusId" label="Статус" rules={[{ required: true, message: "Выберите статус" }]}>
-            <Select placeholder="Выберите статус" options={statuses.map((s) => ({ label: statusLabel(s.code, s.name), value: s.id }))} />
+            <Select
+              placeholder="Выберите статус"
+              options={statuses.map((s) => ({ label: statusLabel(s.code, s.name), value: s.id }))}
+            />
           </Form.Item>
           <Form.Item name="type" label="Тип задачи">
             <Select
@@ -133,8 +150,8 @@ export function TaskForm() {
               ]}
             />
           </Form.Item>
-          <Form.Item name="assigneeId" label="Исполнитель">
-            <Select allowClear placeholder="Выберите исполнителя" options={users.map((user) => ({ label: user.fullName, value: user.id }))} />
+          <Form.Item name="assigneeIds" label="Исполнители">
+            <Select mode="multiple" allowClear placeholder="Выберите исполнителей" options={users.map((user) => ({ label: user.fullName, value: user.id }))} />
           </Form.Item>
           <Form.Item name="progress" label="Прогресс">
             <Select options={[0, 25, 50, 75, 100].map((value) => ({ label: `${value}%`, value }))} />
@@ -155,7 +172,7 @@ export function TaskForm() {
             <InputNumber min={0} />
           </Form.Item>
           <Form.Item>
-            <Button type="primary" htmlType="submit">Сохранить</Button>
+            <Button type="primary" htmlType="submit" loading={saving}>Сохранить</Button>
           </Form.Item>
         </Form>
       </Card>

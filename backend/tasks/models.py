@@ -149,3 +149,21 @@ class Attachment(models.Model):
 
     class Meta:
         ordering = ["-uploaded_at"]
+
+
+class TaskAssignment(models.Model):
+    """Many-to-many assignee relationship for a task."""
+
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="assignments")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="task_assignments",
+    )
+    assigned_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [("task", "user")]
+
+    def __str__(self) -> str:
+        return f"{self.user} → {self.task.code}"

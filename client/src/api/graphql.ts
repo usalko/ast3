@@ -37,8 +37,24 @@ export async function gqlQuery<T = unknown>(query: string, variables?: Record<st
 function isUnauthorized(error: unknown) {
   const graphQLError = error as GraphQLErrorLike;
   const status = graphQLError.response?.status;
+  
+  // Check HTTP status
+  if (status === 401) return true;
+  
+  // Check GraphQL errors array for auth-related messages
+  const errors = graphQLError.response?.errors;
+  if (Array.isArray(errors)) {
+    for (const err of errors) {
+      const msg = err.message ?? "";
+      if (/expired|unauthorized|authentication|authenticated|anonymous|not authenticated/i.test(msg)) {
+        return true;
+      }
+    }
+  }
+  
+  // Fallback: check error message
   const message = graphQLError.message ?? "";
-  return status === 401 || /expired|unauthorized|Authentication required|AnonymousUser/i.test(message);
+  return /expired|unauthorized|authentication|authenticated|anonymous|not authenticated/i.test(message);
 }
 
 function deduplicatedRefresh(): Promise<boolean> {

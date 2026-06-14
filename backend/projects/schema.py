@@ -112,7 +112,7 @@ class ProjectsQuery:
 
     @strawberry_django.field
     def project(self, id: strawberry.ID) -> ProjectType | None:
-        return Project.objects.filter(pk=id).select_related("lead", "department").first()
+        return Project.objects.filter(pk=id).select_related("lead", "department").prefetch_related("statuses").first()
 
 
 @strawberry.type
@@ -134,6 +134,18 @@ class ProjectsMutation:
     @strawberry.mutation
     def delete_project(self, info: strawberry.types.Info, id: strawberry.ID) -> ProjectsMutation.DeleteProjectPayload:
         return _run_sync(_delete_project_sync, info, id)
+
+    @strawberry.mutation
+    def add_user_to_project(
+        self, info: strawberry.types.Info, project_id: strawberry.ID, user_id: strawberry.ID, role: str = ProjectMembership.DEVELOPER
+    ) -> ProjectMembershipType:
+        return _run_sync(_add_user_to_project_sync, info, project_id, user_id, role)
+
+    @strawberry.mutation
+    def remove_user_from_project(
+        self, info: strawberry.types.Info, project_id: strawberry.ID, user_id: strawberry.ID
+    ) -> bool:
+        return _run_sync(_remove_user_from_project_sync, info, project_id, user_id)
 
 
 def _create_project_sync(info: strawberry.types.Info, input: CreateProjectInput) -> ProjectType:
@@ -216,3 +228,28 @@ def _delete_project_sync(
         request=info.context.request,
     )
     return ProjectsMutation.DeleteProjectPayload(success=True)
+
+def _add_user_to_project_sync(info, project_id, user_id, role):
+    from permissions.helpers import require_project_access
+    project = Project.objects.get(pk=project_id)
+    require_project_access(info, project, min_role='manager')
+    user = User.objects.get(pk=user_id)
+    membership, created = ProjectMembership.objects.get_or_create(
+        project=project,
+        user=user,
+        defaults={'role': role},
+    )
+    if not created:
+        membership.role = role
+        membership.save(update_fields=['role'])
+    return membership
+
+def _remove_user_from_project_sync(info, project_id, user_id):
+    from permissions.helpers import require_project_access
+    project = Project.objects.get(pk=project_id)
+    require_project_access(info, project, min_role='manager')
+    deleted, _ = ProjectMembership.objects.filter(
+        project_id=project_id,
+        user_id=user_id,
+    ).delete()
+    return deleted > 0

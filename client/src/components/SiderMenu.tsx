@@ -17,6 +17,7 @@ import {
   LeftOutlined,
   RightOutlined,
   UserOutlined,
+  TeamOutlined,
 } from "@ant-design/icons";
 import {
   type ITreeMenu,
@@ -171,6 +172,22 @@ export function SiderMenu({ Title = ThemedTitleV2 }: SiderMenuProps) {
         }
       : undefined;
 
+    const teamItem = isExistAuthentication
+      ? {
+          key: "/team",
+          icon: <TeamOutlined />,
+          label: (
+            <Link to="/team">
+              Управление сотрудниками
+            </Link>
+          ),
+        }
+      : undefined;
+
+    const dividerItem = isExistAuthentication
+      ? { type: "divider" }
+      : undefined;
+
     const logoutItem = isExistAuthentication
       ? {
           key: "logout",
@@ -180,7 +197,7 @@ export function SiderMenu({ Title = ThemedTitleV2 }: SiderMenuProps) {
         }
       : undefined;
 
-    return [dashboardItem, ...menuTreeItems, logoutItem].filter(
+    return [dashboardItem, ...menuTreeItems, dividerItem, teamItem, logoutItem].filter(
       Boolean,
     ) as MenuItem[];
   }, [
@@ -277,7 +294,7 @@ export function SiderMenu({ Title = ThemedTitleV2 }: SiderMenuProps) {
           placement={direction === "rtl" ? "right" : "left"}
           closable={false}
           width={200}
-          bodyStyle={{ padding: 0 }}
+          styles={{ body: { padding: 0 } }}
           maskClosable
         >
           <Layout>

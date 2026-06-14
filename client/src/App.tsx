@@ -15,7 +15,10 @@ import { TaskForm } from "@/pages/tasks/TaskForm";
 import { LoginPage } from "@/pages/auth/LoginPage";
 import { DashboardPage } from "@/pages/dashboard/DashboardPage";
 import { KanbanPage } from "@/pages/kanban/KanbanPage";
+import { GanttPage } from "@/pages/gantt/GanttPage";
+import { AnalyticsPage } from "@/pages/analytics/AnalyticsPage";
 import { TimeTrackingPage } from "@/pages/time-tracking/TimeTrackingPage";
+import { TeamPage } from "@/pages/team/TeamPage";
 import { AppLayout } from "@/components/SiderMenu";
 
 const GRAPHQL_URL = import.meta.env.VITE_GRAPHQL_URL ?? "/graphql/";
@@ -44,6 +47,16 @@ export default function App() {
                 meta: { label: "Канбан-доска" },
               },
               {
+                name: "gantt",
+                list: "/gantt",
+                meta: { label: "Диаграмма Ганта" },
+              },
+              {
+                name: "analytics",
+                list: "/analytics",
+                meta: { label: "Аналитика" },
+              },
+              {
                 name: "time-tracking",
                 list: "/time-tracking",
                 meta: { label: "Тайм-трекинг" },
@@ -62,7 +75,10 @@ export default function App() {
               >
                 <Route index element={<DashboardPage />} />
                 <Route path="/kanban" element={<KanbanPage />} />
+                <Route path="/gantt" element={<GanttPage />} />
+                <Route path="/analytics" element={<AnalyticsPage />} />
                 <Route path="/time-tracking" element={<TimeTrackingPage />} />
+                <Route path="/team" element={<TeamPage />} />
                 <Route path="/projects" element={<ProjectList />} />
                 <Route path="/projects/new" element={<ProjectForm />} />
                 <Route path="/projects/:id" element={<ProjectShow />} />

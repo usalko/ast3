@@ -30,7 +30,7 @@ export function TaskShow() {
       cancelText: "Отмена",
       onOk: async () => {
         try {
-          await gqlQuery(`mutation ($id: ID!) { deleteTask(id: $id) { success } }`, { id });
+          await gqlQuery(`mutation ($id: ID!) { deleteTask(id: $id) }`, { id });
           message.success("Задача удалена");
           navigate(-1);
         } catch (err) {

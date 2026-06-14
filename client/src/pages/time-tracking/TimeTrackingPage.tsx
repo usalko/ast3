@@ -268,7 +268,7 @@ export function TimeTrackingPage() {
                       <Text strong>Таймер:</Text>
                       <Text code>{timer.task.code}</Text>
                       <Text>{timer.task.title}</Text>
-                      <Tag color="green">запущен {formatDateTime(timer.startTime)}</Tag>
+                       <Tag>запущен {formatDateTime(timer.startTime)}</Tag>
                       <Button onClick={() => stopTimer(timer.id)}>Остановить</Button>
                     </Space>
                   </Card>
@@ -295,7 +295,7 @@ export function TimeTrackingPage() {
                 ) },
                 { title: "Статус", dataIndex: ["status", "name"], key: "status", render: (value: string | undefined, record: Task) => <Tag>{statusLabel(record.status.code, value ?? record.status.name)}</Tag> },
                 { title: "Прогресс", dataIndex: "progress", key: "progress", render: (value?: number) => `${value ?? 0}%` },
-                { title: "Приоритет", dataIndex: "priority", key: "risk", render: (value: number | undefined, record: Task) => <Tag color={riskColor(value)}>{record.isOverdue ? "Просрочено" : riskLabel(value)}</Tag> },
+                { title: "Приоритет", dataIndex: "priority", key: "risk", render: (value: number | undefined, record: Task) =>                 <Tag>{record.isOverdue ? "Просрочено" : riskLabel(value)}</Tag> },
                 { title: "Учёт", key: "actions", render: (_: unknown, record: Task) => <Button size="small" onClick={() => startTimer(record.id)}>Старт</Button> },
               ]}
             />

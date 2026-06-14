@@ -117,14 +117,14 @@ export function GanttPage() {
           }))}
           placeholder="Выберите проект"
         />
-        <Text strong>{selectedProject ? `${selectedProject.code ? `[${selectedProject.code}] ` : ""}${selectedProject.name}` : "Диаграмма Ганта"}</Text>
+        <Text strong>{selectedProject ? `${selectedProject.code ? `[${selectedProject.code}] ` : ""}${selectedProject.name}` : "Календарь проектов"}</Text>
       </Space>
 
       <Spin spinning={loading}>
         {!selectedProject ? (
           <Empty description={projects.length === 0 ? "Нет проектов" : "Выберите проект для построения диаграммы"} />
         ) : (
-          <Card title="Диаграмма Ганта">
+          <Card title="Календарь проектов">
             <div style={{ marginLeft: 360, marginBottom: 6, position: "relative", height: 48 }}>
               {renderTimelineScale(timeline.min, timeline.days)}
             </div>
@@ -143,7 +143,7 @@ export function GanttPage() {
                       <Space wrap>
                         <Text code>{record.task.code}</Text>
                         <Text strong>{record.task.title}</Text>
-                        <Tag color={riskColor(record.task.priority)}>{record.task.isOverdue ? "Просрочено" : riskLabel(record.task.priority)}</Tag>
+                        <Tag>{record.task.isOverdue ? "Просрочено" : riskLabel(record.task.priority)}</Tag>
                       </Space>
                       <Text type="secondary">
                         {record.task.assignee?.fullName ?? "Без исполнителя"} · {record.task.status.name}
@@ -226,7 +226,7 @@ function renderTimelineScale(min: dayjs.Dayjs, days: number) {
           position: "absolute",
           left: `${left}%`,
           top: 24,
-          color: isToday ? "#1677ff" : "#8c8c8c",
+           color: isToday ? "#4b5563" : "#8c8c8c",
           fontSize: 11,
           transform: "translateX(-50%)",
         }}
@@ -260,7 +260,7 @@ function renderTimelineBar(left: number, width: number, totalDays: number, task:
           width: `${widthPercent}%`,
           height: 16,
           borderRadius: 8,
-          backgroundColor: task.status.color || "#1677ff",
+          backgroundColor: "#4b5563",
           opacity: 0.85,
         }}
         title={`${task.title}: ${formatDate(task.plannedStart)} — ${formatDate(task.plannedEnd)}`}

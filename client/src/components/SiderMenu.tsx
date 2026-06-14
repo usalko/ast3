@@ -236,8 +236,9 @@ export function SiderMenu({ Title = SiderTitle }: SiderMenuProps) {
     return <IconComponent {...iconProps} />;
   };
 
-  const renderMenu = () => (
+  const buildMenu = () => (
     <Menu
+      className="sider-menu"
       selectedKeys={[location.pathname === "/" ? "/" : location.pathname]}
       defaultOpenKeys={[...defaultOpenKeys, ...defaultOpenMenuItems]}
       mode="inline"
@@ -312,7 +313,7 @@ export function SiderMenu({ Title = SiderTitle }: SiderMenuProps) {
           onClose={() => setMobileSiderOpen(false)}
           placement={direction === "rtl" ? "right" : "left"}
           closable={false}
-          width={200}
+          width={260}
           styles={{ body: { padding: 0 } }}
           maskClosable
         >
@@ -326,7 +327,7 @@ export function SiderMenu({ Title = SiderTitle }: SiderMenuProps) {
             >
               <div
                 style={{
-                  width: "200px",
+                    width: "240px",
                   padding: "0 16px",
                   display: "flex",
                   justifyContent: "center",
@@ -337,7 +338,7 @@ export function SiderMenu({ Title = SiderTitle }: SiderMenuProps) {
               >
                 <Title collapsed={false} />
               </div>
-              {renderMenu()}
+              {buildMenu()}
             </Layout.Sider>
           </Layout>
         </Drawer>
@@ -358,6 +359,7 @@ export function SiderMenu({ Title = SiderTitle }: SiderMenuProps) {
 
   return (
     <Layout.Sider
+      width={260}
       style={siderStyles}
       collapsible
       collapsed={siderCollapsed}
@@ -366,7 +368,7 @@ export function SiderMenu({ Title = SiderTitle }: SiderMenuProps) {
           setSiderCollapsed(collapsed);
         }
       }}
-      collapsedWidth={80}
+      collapsedWidth={90}
       breakpoint="lg"
       trigger={
         <Button
@@ -382,9 +384,20 @@ export function SiderMenu({ Title = SiderTitle }: SiderMenuProps) {
         </Button>
       }
       >
+      <style>{`
+        .sider-menu .ant-menu-item-selected {
+          background: rgba(255, 255, 255, 0.07) !important;
+        }
+        .sider-menu .ant-menu-item-selected .anticon,
+        .sider-menu .ant-menu-item-selected > a,
+        .sider-menu .ant-menu-item-selected span,
+        .sider-menu .ant-menu-item-selected {
+          font-weight: 700;
+        }
+      `}</style>
       <div
         style={{
-          width: siderCollapsed ? "80px" : "200px",
+          width: siderCollapsed ? "90px" : "240px",
           padding: siderCollapsed ? "0" : "0 16px",
           display: "flex",
           justifyContent: "center",
@@ -396,7 +409,7 @@ export function SiderMenu({ Title = SiderTitle }: SiderMenuProps) {
       >
         <Title collapsed={siderCollapsed} />
       </div>
-      {renderMenu()}
+      {buildMenu()}
       {renderUserInfo()}
     </Layout.Sider>
 

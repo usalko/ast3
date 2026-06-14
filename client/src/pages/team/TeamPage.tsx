@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
-import { Table, message, Button, Modal, Form, Input, Card, Tag, Space, Tooltip } from "antd";
+import { Table, message, Button, Modal, Form, Input, Card, Tag, Space, Tooltip, Typography } from "antd";
 import { gqlQuery } from "@/api/graphql";
+
+const { Text } = Typography;
 
 type Task = {
   id: string;
   code: string;
   title: string;
   projectId?: string;
-  status: { code: string; name: string; color: string };
-  assignee?: { id: string } | null;
+  status: { code: string; name: string };
 };
 
 type User = {
@@ -16,7 +17,6 @@ type User = {
   email: string;
   firstName?: string | null;
   lastName?: string | null;
-  fullName?: string | null;
   roles?: string[];
   assignedTasks?: Task[];
 };
@@ -31,41 +31,11 @@ export function TeamPage() {
   const loadUsers = async () => {
     setLoading(true);
     try {
-      const res = await gqlQuery<{ users: User[] }>("query { users { id email firstName lastName fullName roles } }");
+      const res = await gqlQuery<{ users: User[] }>("query { users { id email firstName lastName roles } }");
       const list = res.users ?? [];
       const filtered = list.filter((u) => !(u.roles || []).includes("admin") && u.email !== "admin@test.local");
-      
-      // Try to fetch tasks, but don't block the page if it fails
-      try {
-        const tasksRes = await gqlQuery<{ tasksAll: Task[] }>(`query { 
-          tasksAll { 
-            id code title 
-            projectId
-            status { code name color } 
-            assignee { id } 
-          } 
-        }`);
-        const tasks = tasksRes.tasksAll ?? [];
-        
-        const tasksByAssignee = new Map<string, Task[]>();
-        for (const task of tasks) {
-          if (task.assignee?.id) {
-            const existing = tasksByAssignee.get(task.assignee.id) ?? [];
-            existing.push(task);
-            tasksByAssignee.set(task.assignee.id, existing);
-          }
-        }
-        
-        const usersWithTasks = filtered.map(u => ({
-          ...u,
-          assignedTasks: tasksByAssignee.get(u.id) ?? []
-        }));
-        
-        setUsers(usersWithTasks);
-      } catch {
-        // Tasks query failed, show users without task info
-        setUsers(filtered);
-      }
+      const sorted = [...filtered].sort((a, b) => (a.firstName || a.email).localeCompare(b.firstName || b.email));
+      setUsers(sorted);
     } catch {
       message.error("Не удалось загрузить сотрудников");
     } finally {
@@ -80,16 +50,15 @@ export function TeamPage() {
   const handleAddOk = async () => {
     try {
       const values = await addForm.validateFields();
-      const first = String(values.firstName || "").trim();
-      const last = String(values.lastName || "").trim();
-      if (!first || !last) {
-        message.error("Укажите имя и фамилию");
+      const fullName = String(values.fullName || "").trim();
+      if (!fullName) {
+        message.error("Укажите имя");
         return;
       }
-      const email = `${first.toLowerCase()}.${last.toLowerCase()}@example.com`;
+      const email = `${fullName.toLowerCase().replace(/\s+/g, ".")}@svr10.local`;
       await gqlQuery(
         `mutation($email:String!,$password:String!,$firstName:String!,$lastName:String!){register(email:$email,password:$password,firstName:$firstName,lastName:$lastName){id email}}`,
-        { email, password: "ChangeMe123!", firstName: first, lastName: last },
+        { email, password: "ChangeMe123!", firstName: fullName, lastName: fullName },
       );
       message.success("Сотрудник добавлен");
       setAddModalOpen(false);
@@ -102,7 +71,7 @@ export function TeamPage() {
   };
 
   const handleRemoveClick = (user: User) => {
-    setRemoveTarget({ userId: user.id, userName: user.fullName || `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email });
+    setRemoveTarget({ userId: user.id, userName: user.firstName || user.email });
   };
 
   const handleRemoveOk = async () => {
@@ -120,40 +89,13 @@ export function TeamPage() {
 
   const columns = [
     {
-      title: "Сотрудник",
+      title: "Имя",
       key: "name",
       render: (_: unknown, record: User) => (
         <Space>
-          <span>{record.fullName || `${record.firstName || ""} ${record.lastName || ""}`.trim() || record.email}</span>
-          {record.roles?.length ? <span>{renderRoles(record.roles)}</span> : null}
+          <span>{record.firstName || record.email}</span>
         </Space>
       ),
-    },
-    {
-      title: "Задачи (исполнитель)",
-      key: "tasks",
-      width: 300,
-      render: (_: unknown, record: User) => {
-        const tasks = record.assignedTasks ?? [];
-        if (!tasks.length) return <span style={{ color: "#999" }}>Нет задач</span>;
-        return (
-          <Space direction="vertical" size={4} style={{ width: "100%" }}>
-            {tasks.map((task) => (
-              <Tooltip key={task.id} title={task.title}>
-                <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <Tag color={task.status.color} style={{ fontSize: 11 }}>
-                    {task.status.name}
-                  </Tag>
-                  <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    <strong>{task.code}</strong> — {task.title}
-                  </span>
-                  <span style={{ color: "#999", fontSize: 12 }}>Проект: {task.projectId}</span>
-                </span>
-              </Tooltip>
-            ))}
-          </Space>
-        );
-      },
     },
     {
       title: "Действия",
@@ -196,11 +138,8 @@ export function TeamPage() {
         }}
       >
         <Form form={addForm} layout="vertical">
-          <Form.Item name="firstName" label="Имя" rules={[{ required: true }]}>
-            <Input placeholder="Имя" />
-          </Form.Item>
-          <Form.Item name="lastName" label="Фамилия" rules={[{ required: true }]}>
-            <Input placeholder="Фамилия" />
+          <Form.Item name="fullName" label="Имя" rules={[{ required: true }]}>
+            <Input placeholder="Введите имя" />
           </Form.Item>
         </Form>
       </Modal>
@@ -216,16 +155,5 @@ export function TeamPage() {
         </p>
       </Modal>
     </div>
-  );
-}
-
-function renderRoles(roles?: string[]) {
-  if (!roles || roles.length === 0) return null;
-  return (
-    <Space size={[0, 4]} wrap>
-      {roles.map((r) => (
-        <Tag key={r}>{r}</Tag>
-      ))}
-    </Space>
   );
 }

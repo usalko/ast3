@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Form, Input, Button, Card, message } from "antd";
+import { Form, Input, Button, Card, message, theme } from "antd";
 import { useNavigate } from "react-router-dom";
 import { gqlQuery } from "@/api/graphql";
 
@@ -7,6 +7,7 @@ const TOKEN_KEY = "ast3_access";
 const REFRESH_KEY = "ast3_refresh";
 
 export function LoginPage() {
+  const { token } = theme.useToken();
   const [form] = Form.useForm();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -49,7 +50,7 @@ export function LoginPage() {
         justifyContent: "center",
         alignItems: "center",
         height: "100vh",
-        backgroundColor: "#f0f2f5",
+        backgroundColor: token.colorBgLayout,
       }}
     >
       <Card style={{ width: 400 }} title="Вход в AST3">

@@ -83,7 +83,7 @@ export function ProjectShow() {
           <Descriptions.Item label="Описание" span={3}>{project.description}</Descriptions.Item>
           <Descriptions.Item label="Статус">
             <Switch checked={project.status !== "on_hold" && project.status !== "cancelled"} onChange={handleToggleStatus} />
-            <Tag color={project.status === "active" ? "blue" : "default"} style={{ marginLeft: 8 }}>
+            <Tag style={{ marginLeft: 8 }}>
               {project.status === "active" ? "Активен" : "Неактивен"}
             </Tag>
           </Descriptions.Item>

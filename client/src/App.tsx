@@ -24,9 +24,37 @@ import { AppLayout } from "@/components/SiderMenu";
 const GRAPHQL_URL = import.meta.env.VITE_GRAPHQL_URL ?? "/graphql/";
 
 export default function App() {
+  const neutralTheme = {
+    token: {
+      colorPrimary: "#4b5563",
+      colorSuccess: "#6b7b6e",
+      colorWarning: "#a8987a",
+      colorError: "#b87a7a",
+      colorInfo: "#4b5563",
+      borderRadius: 8,
+    },
+  };
   return (
     <BrowserRouter>
-      <ConfigProvider theme={RefineThemes.Blue} locale={ruRU}>
+      <ConfigProvider
+        theme={{
+          token: {
+            colorPrimary: "#475569",
+            colorSuccess: "#4ade80",
+            colorWarning: "#fbbf24",
+            colorError: "#ef4444",
+            colorInfo: "#64748b",
+            colorBgContainer: "#ffffff",
+            colorBgLayout: "#f8fafc",
+            colorText: "#0f172a",
+            colorTextSecondary: "#64748b",
+            colorBorder: "#e2e8f0",
+            borderRadius: 6,
+            fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+          },
+        }}
+        locale={ruRU}
+      >
         <AntApp>
           <Refine
             authProvider={authProvider}
@@ -50,7 +78,7 @@ export default function App() {
               {
                 name: "gantt",
                 list: "/gantt",
-                meta: { label: "Диаграмма Ганта" },
+                meta: { label: "Календарь проектов" },
               },
               {
                 name: "analytics",

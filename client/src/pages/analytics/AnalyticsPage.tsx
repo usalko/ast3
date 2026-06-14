@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useState } from "react";
-import { Card, Col, Progress, Row, Statistic, Table, Tag, Typography, Empty, Spin, Tooltip } from "antd";
+import { Card, Col, Progress, Row, Statistic, Table, Tag, Typography, Empty, Spin, Tooltip, theme } from "antd";
 import { CheckCircleFilled, ClockCircleFilled, ExclamationCircleFilled, ProjectFilled, UnorderedListOutlined, UserOutlined, TeamOutlined, FireOutlined } from "@ant-design/icons";
 import { gqlQuery } from "@/api/graphql";
 
@@ -54,6 +54,7 @@ function monthLabel(key: string) {
 function round(v: number) { return Math.round(v * 10) / 10; }
 
 export function AnalyticsPage() {
+  const { token } = theme.useToken();
   const [loading, setLoading] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasksByProject, setTasksByProject] = useState<Record<string, Task[]>>({});
@@ -118,7 +119,7 @@ export function AnalyticsPage() {
 
   const timeline = useMemo(() => {
     const projectMonths: { project: Project; months: string[]; color: string }[] = [];
-    const colors = ["#1677ff", "#52c41a", "#fa8c16", "#eb2f96", "#722ed1", "#13c2c2", "#faad14", "#a0d911"];
+    const colors = ["#6b7b6e", "#a8987a", "#b87a7a", "#8b8b8b", "#7a8b9a", "#9a7a8b", "#8b9a7a", "#9a8b7a"];
     const now = new Date();
     const currYear = now.getFullYear();
     const currM = now.getMonth() + 1;
@@ -233,7 +234,7 @@ export function AnalyticsPage() {
   }, [allTasks, entriesByProject, activeProjects, projects]);
 
   return (
-    <div style={{ padding: 16, background: "#f5f5f5", minHeight: "100vh" }}>
+    <div style={{ padding: 16, background: token.colorBgLayout, minHeight: "100vh" }}>
       <Spin spinning={loading}>
         <div style={{ marginBottom: 24 }}>
           <TypTitle level={4} style={{ margin: 0 }}>Аналитика</TypTitle>
@@ -243,9 +244,9 @@ export function AnalyticsPage() {
         <Row gutter={[12, 12]}>
           <Col xs={12} lg={3}><Card size="small"><Statistic title="Проекты" value={totals.projectCount} suffix={`/ ${totals.activeCount} акт.`} prefix={<ProjectFilled />} /></Card></Col>
           <Col xs={12} lg={3}><Card size="small"><Statistic title="Задачи" value={totals.taskCount} prefix={<UnorderedListOutlined />} /></Card></Col>
-          <Col xs={12} lg={3}><Card size="small"><Statistic title="Готово" value={totals.doneCount} suffix={`/ ${totals.taskCount}`} valueStyle={{ color: "#52c41a" }} prefix={<CheckCircleFilled />} /></Card></Col>
-          <Col xs={12} lg={3}><Card size="small"><Statistic title="Отменено" value={totals.cancelledCount} valueStyle={{ color: "#999" }} /></Card></Col>
-          <Col xs={12} lg={3}><Card size="small"><Statistic title="Просрочено" value={totals.overdueCount} valueStyle={{ color: totals.overdueCount > 0 ? "#ff4d4f" : undefined }} prefix={<ClockCircleFilled />} /></Card></Col>
+          <Col xs={12} lg={3}><Card size="small"><Statistic title="Готово" value={totals.doneCount} suffix={`/ ${totals.taskCount}`} prefix={<CheckCircleFilled />} /></Card></Col>
+          <Col xs={12} lg={3}><Card size="small"><Statistic title="Отменено" value={totals.cancelledCount} /></Card></Col>
+          <Col xs={12} lg={3}><Card size="small"><Statistic title="Просрочено" value={totals.overdueCount} prefix={<ClockCircleFilled />} /></Card></Col>
           <Col xs={12} lg={3}><Card size="small"><Statistic title="Высокий приоритет" value={totals.highPriorityCount} prefix={<ExclamationCircleFilled />} /></Card></Col>
           <Col xs={12} lg={3}><Card size="small"><Statistic title="Прогресс" value={totals.avgProgress} suffix="%" /></Card></Col>
           <Col xs={12} lg={3}><Card size="small"><Statistic title="Часов всего" value={round(totals.actualHours)} precision={1} /></Card></Col>
@@ -265,7 +266,7 @@ columns={[
                       { title: "Прогресс", dataIndex: "progress", key: "progress", render: (v) => <Progress percent={v ?? 0} size="small" />, width: 100 },
                       { title: "Статус", key: "status", render: (_, r) => <Tag color={r.status.isDone ? "green" : r.status.isCancelled ? "default" : "blue"}>{r.status.name}</Tag>, width: 90 },
                       { title: "Исполнитель", key: "assignee", render: (_, r) => r.assignee?.fullName ?? "—" },
-                      { title: "Просрочена", key: "overdue", render: (_, r) => r.isOverdue ? <Tag color="red">Да</Tag> : <Tag color="green">Нет</Tag>, width: 80 },
+                      { title: "Просрочена", key: "overdue", render: (_, r) => r.isOverdue ? <Tag>Да</Tag> : <Tag>Нет</Tag>, width: 80 },
                     ]}
                   locale={{ emptyText: "Нет задач высокого приоритета" }}
                 />
@@ -280,7 +281,7 @@ columns={[
                       <tr>
                         <th style={{ padding: "4px 12px", textAlign: "left", whiteSpace: "nowrap" }}>Проект</th>
                         {timeline.sortedMonths.map((m) => (
-                          <th key={m} style={{ padding: "4px 2px", textAlign: "center", minWidth: 60, color: "#888", fontWeight: 400 }}>{monthLabel(m)}</th>
+                           <th key={m} style={{ padding: "4px 2px", textAlign: "center", minWidth: 60, color: "#8b8b8b", fontWeight: 400 }}>{monthLabel(m)}</th>
                         ))}
                       </tr>
                     </thead>
@@ -313,7 +314,7 @@ columns={[
                 columns={[
                   { title: "Проект", key: "n", render: (_, r) => <span><Text strong>{r.project.code}</Text> <Text type="secondary" style={{ fontSize: 12 }}>{r.project.name}</Text></span> },
                   { title: "Тип", key: "t", render: (_, r) => projectTypeLabel(r.project.type), width: 100 },
-                  { title: "Статус", key: "s", render: (_, r) => <Tag color={r.project.status === "active" ? "blue" : r.project.status === "completed" ? "green" : "default"}>{r.project.status ?? "—"}</Tag>, width: 90 },
+                   { title: "Статус", key: "s", render: (_, r) => <Tag>{r.project.status === "active" ? "Активен" : r.project.status === "completed" ? "Завершён" : "—"}</Tag>, width: 90 },
                   { title: "Задачи", render: (_, r) => r.tasks.length, width: 60 },
                   { title: "Готово", dataIndex: "done", width: 60 },
                   { title: "Отменено", dataIndex: "cancelled", width: 70 },

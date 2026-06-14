@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { DragDropContext, Draggable, Droppable, type DropResult } from "@hello-pangea/dnd";
-import { Card, Select, Tag, Space, Typography, Empty, Progress, Button, message, Spin } from "antd";
+import { Card, Select, Tag, Space, Typography, Empty, Progress, Button, message, Spin, theme } from "antd";
 import { Link } from "react-router-dom";
 import { gqlQuery } from "@/api/graphql";
 import { riskColor, riskLabel } from "@/utils/riskLabels";
@@ -9,7 +9,7 @@ import { statusLabel } from "@/utils/statusLabels";
 
 type Project = { id: string; code?: string; name: string };
 type TaskStatus = { id: string; name: string; code: string; color?: string | null; isDone?: boolean };
-type User = { id: string; fullName?: string | null };
+type User = { id: string; fullName?: string | null; position?: string | null };
 type Task = {
   id: string;
   code?: string;
@@ -27,6 +27,7 @@ type ProjectWithStatuses = { id: string; statuses: TaskStatus[] };
 const { Text } = Typography;
 
 export function KanbanPage() {
+  const { token } = theme.useToken();
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState("");
   const [statuses, setStatuses] = useState<TaskStatus[]>([]);
@@ -59,7 +60,7 @@ export function KanbanPage() {
         project(id: $projectId) { id statuses { id name code color isDone } }
         tasks(projectId: $projectId) {
           id code title progress priority isOverdue status { id name code color isDone }
-          assignee { id fullName } plannedStart plannedEnd
+          assignee { id fullName position } plannedStart plannedEnd
         }
       }`,
       { projectId }
@@ -166,7 +167,7 @@ export function KanbanPage() {
   }
 
   return (
-    <div style={{ padding: 16 }}>
+      <div style={{ padding: 16, background: token.colorBgLayout, minHeight: "100vh" }}>
       <Space style={{ marginBottom: 16 }} wrap>
         <Select
           style={{ minWidth: 320 }}
@@ -199,11 +200,11 @@ export function KanbanPage() {
                         size="small"
                         title={
                           <Space>
-                            <Tag color={status.color ?? "default"}>{statusLabel(status.code, status.name)}</Tag>
+                             <Tag>{statusLabel(status.code, status.name)}</Tag>
                             <Text type="secondary">{columnTasks.length}</Text>
                           </Space>
                         }
-                        style={{ minWidth: 280, maxWidth: 340, backgroundColor: "#fafafa" }}
+                        style={{ minWidth: 280, maxWidth: 340, background: token.colorBgContainer }}
 styles={{ body: { minHeight: 260, padding: 8 } }}
                         ref={provided.innerRef}
                         {...provided.droppableProps}
@@ -234,8 +235,8 @@ styles={{ body: { minHeight: 260, padding: 8 } }}
                                 >
                                     <Space direction="vertical" size={8} style={{ width: "100%" }}>
                                       <Space wrap>
-                                        <Text type="secondary">Исполнитель: {task.assignee?.fullName ?? "Без исполнителя"}</Text>
-                                        <Tag color={riskColor(task.priority)}>{task.isOverdue ? "Просрочено" : riskLabel(task.priority)}</Tag>
+                                         <Text type="secondary">Исполнитель: {task.assignee?.position ?? task.assignee?.fullName ?? "Без исполнителя"}</Text>
+                                        <Tag>{task.isOverdue ? "Просрочено" : riskLabel(task.priority)}</Tag>
                                       </Space>
                                       <Progress percent={task.status?.isDone || task.status?.code === "done" ? 100 : (task.progress ?? 0)} size="small" />
 

@@ -16,13 +16,13 @@ export function riskLabel(level?: number | null) {
 export function riskColor(level?: number | null) {
   switch (level) {
     case 0:
-      return "green";
+      return "default";
     case 1:
-      return "blue";
+      return "default";
     case 2:
-      return "orange";
+      return "default";
     case 3:
-      return "red";
+      return "default";
     default:
       return "default";
   }

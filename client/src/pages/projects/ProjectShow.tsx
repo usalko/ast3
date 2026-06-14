@@ -11,7 +11,7 @@ type Task = {
   plannedStart?: string | null;
   plannedEnd?: string | null;
   progress?: number | null;
-  riskLevel?: number | null;
+  priority?: number;
   isOverdue?: boolean | null;
   status?: { id: string; name: string; code?: string; color?: string | null } | null;
 };
@@ -28,7 +28,7 @@ export function ProjectShow() {
     gqlQuery<{ project: Project; tasks: Task[] }>(
       `query ($id: ID!) {
         project(id: $id) { id code name description }
-        tasks(projectId: $id) { id title plannedStart plannedEnd progress riskLevel isOverdue status { id name code color } }
+        tasks(projectId: $id) { id title plannedStart plannedEnd progress priority isOverdue status { id name code color } }
       }`,
       { id: projectId }
     ).then((res) => {
@@ -100,7 +100,7 @@ export function ProjectShow() {
               title={
                 <span>
                   {t.status?.name && <Tag color={t.status.color ?? "default"}>{statusLabel(t.status.code, t.status.name)}</Tag>}
-                  <Tag color={riskColor(t.riskLevel)}>{t.isOverdue ? "Просрочено" : riskLabel(t.riskLevel)}</Tag>
+                  <Tag color={riskColor(t.priority)}>{t.isOverdue ? "Просрочено" : riskLabel(t.priority)}</Tag>
                   <Link to={`/tasks/${t.id}`}>{t.title}</Link>
                 </span>
               }

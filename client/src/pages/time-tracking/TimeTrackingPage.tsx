@@ -14,7 +14,7 @@ type Task = {
   title: string;
   progress?: number | null;
   estimatedHours?: number | null;
-  riskLevel?: number | null;
+  priority?: number;
   isOverdue?: boolean | null;
   status: TaskStatus;
   assignee?: User | null;
@@ -79,7 +79,7 @@ export function TimeTrackingPage() {
         const res = await gqlQuery<{ tasks: Task[] }>(
           `query ($projectId: ID!) {
             tasks(projectId: $projectId) {
-              id code title progress estimatedHours riskLevel isOverdue status { id name } assignee { id fullName }
+              id code title progress estimatedHours priority isOverdue status { id name } assignee { id fullName }
             }
           }`,
           { projectId: project }
@@ -281,7 +281,7 @@ export function TimeTrackingPage() {
                 ) },
                 { title: "Статус", dataIndex: ["status", "name"], key: "status", render: (value: string | undefined, record: Task) => <Tag>{statusLabel(record.status.code, value ?? record.status.name)}</Tag> },
                 { title: "Прогресс", dataIndex: "progress", key: "progress", render: (value?: number) => `${value ?? 0}%` },
-                { title: "Риск", dataIndex: "riskLevel", key: "risk", render: (value: number | undefined, record: Task) => <Tag color={riskColor(value)}>{record.isOverdue ? "Просрочено" : riskLabel(value)}</Tag> },
+                { title: "Приоритет", dataIndex: "priority", key: "risk", render: (value: number | undefined, record: Task) => <Tag color={riskColor(value)}>{record.isOverdue ? "Просрочено" : riskLabel(value)}</Tag> },
                 { title: "Учёт", key: "actions", render: (_: unknown, record: Task) => <Button size="small" onClick={() => startTimer(record.id)}>Старт</Button> },
               ]}
             />

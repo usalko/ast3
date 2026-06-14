@@ -1,4 +1,4 @@
-import React, { useContext, useMemo } from "react";
+﻿import React, { useContext, useMemo } from "react";
 import {
   Layout,
   Menu,
@@ -31,7 +31,7 @@ import {
   useTranslate,
   useWarnAboutChange,
 } from "@refinedev/core";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   ThemedHeaderV2,
   ThemedLayoutContextProvider,
@@ -64,6 +64,26 @@ function toMenuItem(item: ITreeMenu, Link: React.ComponentType<{ to: string; chi
     label: itemLabel,
     children: itemChildren.length > 0 ? itemChildren.map((child) => toMenuItem(child, Link)) : undefined,
   };
+}
+
+export function SiderTitle({ collapsed }: { collapsed: boolean }) {
+  const navigate = useNavigate();
+  return (
+    <div
+      style={{
+        fontSize: collapsed ? 18 : 28,
+        fontWeight: 700,
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        letterSpacing: 4,
+        cursor: "pointer",
+      }}
+      onClick={() => navigate("/")}
+    >
+      {collapsed ? "A" : "AST3"}
+    </div>
+  );
 }
 
 export function AppLayout({
@@ -99,7 +119,7 @@ export function AppLayout({
   );
 }
 
-export function SiderMenu({ Title = ThemedTitleV2 }: SiderMenuProps) {
+export function SiderMenu({ Title = SiderTitle }: SiderMenuProps) {
   const { token } = theme.useToken();
   const {
     siderCollapsed,
@@ -125,6 +145,7 @@ export function SiderMenu({ Title = ThemedTitleV2 }: SiderMenuProps) {
   }>();
 
   const Link = routerType === "legacy" ? LegacyLink : NewLink;
+  const location = useLocation();
   const isMobile =
     typeof breakpoint.lg === "undefined" ? false : !breakpoint.lg;
 
@@ -160,17 +181,15 @@ export function SiderMenu({ Title = ThemedTitleV2 }: SiderMenuProps) {
   );
 
   const items = useMemo<MenuItem[]>(() => {
-    const dashboardItem = hasDashboard
-      ? {
-          key: "/",
-          icon: <DashboardOutlined />,
-          label: (
-            <Link to="/">
-              {translate("dashboard.title", "Dashboard")}
-            </Link>
-          ),
-        }
-      : undefined;
+    const dashboardItem = {
+      key: "/",
+      icon: <DashboardOutlined />,
+      label: (
+        <Link to="/">
+          {translate("dashboard.title", "Dashboard")}
+        </Link>
+      ),
+    };
 
     const teamItem = isExistAuthentication
       ? {
@@ -219,7 +238,7 @@ export function SiderMenu({ Title = ThemedTitleV2 }: SiderMenuProps) {
 
   const renderMenu = () => (
     <Menu
-      selectedKeys={selectedKey ? [selectedKey] : []}
+      selectedKeys={[location.pathname === "/" ? "/" : location.pathname]}
       defaultOpenKeys={[...defaultOpenKeys, ...defaultOpenMenuItems]}
       mode="inline"
       items={items}
@@ -310,7 +329,7 @@ export function SiderMenu({ Title = ThemedTitleV2 }: SiderMenuProps) {
                   width: "200px",
                   padding: "0 16px",
                   display: "flex",
-                  justifyContent: "flex-start",
+                  justifyContent: "center",
                   alignItems: "center",
                   height: "64px",
                   backgroundColor: token.colorBgElevated,
@@ -368,7 +387,7 @@ export function SiderMenu({ Title = ThemedTitleV2 }: SiderMenuProps) {
           width: siderCollapsed ? "80px" : "200px",
           padding: siderCollapsed ? "0" : "0 16px",
           display: "flex",
-          justifyContent: siderCollapsed ? "center" : "flex-start",
+          justifyContent: "center",
           alignItems: "center",
           height: "64px",
           backgroundColor: token.colorBgElevated,

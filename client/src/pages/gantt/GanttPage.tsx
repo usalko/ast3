@@ -22,7 +22,7 @@ type Task = {
   plannedStart?: string | null;
   plannedEnd?: string | null;
   progress?: number | null;
-  riskLevel?: number | null;
+  priority?: number;
   isOverdue?: boolean | null;
   status: TaskStatus;
   assignee?: User | null;
@@ -56,7 +56,7 @@ export function GanttPage() {
       `query ($projectId: ID!) {
         project(id: $projectId) { id code name plannedStart plannedEnd }
         tasks(projectId: $projectId) {
-          id code title plannedStart plannedEnd progress riskLevel isOverdue status { id name color }
+          id code title plannedStart plannedEnd progress priority isOverdue status { id name color }
           assignee { id fullName }
           dependencies { id type predecessor { id code title } successor { id code title } }
         }
@@ -143,7 +143,7 @@ export function GanttPage() {
                       <Space wrap>
                         <Text code>{record.task.code}</Text>
                         <Text strong>{record.task.title}</Text>
-                        <Tag color={riskColor(record.task.riskLevel)}>{record.task.isOverdue ? "Просрочено" : riskLabel(record.task.riskLevel)}</Tag>
+                        <Tag color={riskColor(record.task.priority)}>{record.task.isOverdue ? "Просрочено" : riskLabel(record.task.priority)}</Tag>
                       </Space>
                       <Text type="secondary">
                         {record.task.assignee?.fullName ?? "Без исполнителя"} · {record.task.status.name}

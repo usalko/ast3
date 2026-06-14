@@ -15,7 +15,7 @@ type Task = {
   code?: string;
   title: string;
   progress?: number | null;
-  riskLevel?: number | null;
+  priority?: number;
   isOverdue?: boolean | null;
   status: TaskStatus;
   assignee?: User | null;
@@ -58,7 +58,7 @@ export function KanbanPage() {
       `query ($projectId: ID!) {
         project(id: $projectId) { id statuses { id name code color isDone } }
         tasks(projectId: $projectId) {
-          id code title progress riskLevel isOverdue status { id name code color isDone }
+          id code title progress priority isOverdue status { id name code color isDone }
           assignee { id fullName } plannedStart plannedEnd
         }
       }`,
@@ -222,14 +222,14 @@ styles={{ body: { minHeight: 260, padding: 8 } }}
                                     <Space direction="vertical" size={8} style={{ width: "100%" }}>
                                       <Space wrap>
                                         <Text type="secondary">Исполнитель: {task.assignee?.fullName ?? "Без исполнителя"}</Text>
-                                        <Tag color={riskColor(task.riskLevel)}>{task.isOverdue ? "Просрочено" : riskLabel(task.riskLevel)}</Tag>
+                                        <Tag color={riskColor(task.priority)}>{task.isOverdue ? "Просрочено" : riskLabel(task.priority)}</Tag>
                                       </Space>
-                                      <Progress percent={task.progress ?? 0} size="small" />
+                                      <Progress percent={task.status?.isDone || task.status?.code === "done" ? 100 : (task.progress ?? 0)} size="small" />
 
                                     <Select
                                       size="small"
-                                      value={task.progress ?? 0}
-                                      onChange={(value) => handleProgressChange(task.id, value as number)}
+                                      value={task.status?.isDone || task.status?.code === "done" ? 100 : (task.progress ?? 0)}
+                                      onChange={(value) => handleProgressChange(task.id, value as number)} disabled={task.status?.isDone || task.status?.code === "done"}
                                       options={[0, 25, 50, 75, 100].map((value) => ({ label: `${value}%`, value }))}
                                       style={{ width: "100%" }}
                                     />

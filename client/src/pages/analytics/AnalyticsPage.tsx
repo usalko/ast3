@@ -24,7 +24,7 @@ type Task = {
   title: string;
   progress?: number | null;
   estimatedHours?: number | null;
-  riskLevel?: number | null;
+  priority?: number;
   isOverdue?: boolean | null;
   status: TaskStatus;
   assignee?: User | null;
@@ -83,7 +83,7 @@ export function AnalyticsPage() {
     const estimated = stats.reduce((sum, item) => sum + item.estimatedHours, 0);
     const actual = stats.reduce((sum, item) => sum + item.actualHours, 0);
     const overdue = stats.reduce((sum, item) => sum + item.tasks.filter((task) => task.isOverdue).length, 0);
-    const highRisk = stats.reduce((sum, item) => sum + item.tasks.filter((task) => (task.riskLevel ?? 0) >= 3).length, 0);
+    const highRisk = stats.reduce((sum, item) => sum + item.tasks.filter((task) => (task.priority ?? 0) >= 3).length, 0);
     const avgProgress = taskCount === 0 ? 0 : Math.round(stats.reduce((sum, item) => sum + item.avgProgress * item.tasks.length, 0) / taskCount);
     return { taskCount, doneCount, estimated, actual, avgProgress, overdue, highRisk };
   }, [stats]);
@@ -97,7 +97,7 @@ export function AnalyticsPage() {
         current.tasks += 1;
         current.done += task.status.isDone || task.status.code === "done" ? 1 : 0;
         current.progress.push(task.progress ?? 0);
-        current.risk.push(task.riskLevel ?? 0);
+        current.risk.push(task.priority ?? 0);
         current.overdue += task.isOverdue ? 1 : 0;
         current.hours += hoursForTask(task.id, item.entries);
         grouped.set(user.id, current);
@@ -119,7 +119,7 @@ export function AnalyticsPage() {
         current.tasks += 1;
         current.done += task.status.isDone || task.status.code === "done" ? 1 : 0;
         current.progress.push(task.progress ?? 0);
-        current.risk.push(task.riskLevel ?? 0);
+        current.risk.push(task.priority ?? 0);
         current.overdue += task.isOverdue ? 1 : 0;
         current.hours += hoursForTask(task.id, item.entries);
         grouped.set(departmentName, current);
@@ -141,7 +141,7 @@ export function AnalyticsPage() {
           <Col span={6}><Card><Statistic title="Выполнено" value={totals.doneCount} precision={0} /></Card></Col>
           <Col span={6}><Card><Statistic title="Средний прогресс" value={totals.avgProgress} suffix="%" /></Card></Col>
           <Col span={6}><Card><Statistic title="Просрочено" value={totals.overdue} /></Card></Col>
-          <Col span={6}><Card><Statistic title="Высокий риск" value={totals.highRisk} /></Card></Col>
+          <Col span={6}><Card><Statistic title="Высокий приоритет" value={totals.highRisk} /></Card></Col>
           <Col span={12}><Card><Statistic title="Оценка, ч" value={round(totals.estimated)} precision={1} /></Card></Col>
           <Col span={12}><Card><Statistic title="Факт, ч" value={round(totals.actual)} precision={1} /></Card></Col>
         </Row>
@@ -163,8 +163,8 @@ export function AnalyticsPage() {
                   { title: "Задачи", dataIndex: "tasks", key: "tasks", render: (_: unknown, record: ProjectStats) => record.tasks.length },
                   { title: "Готово", dataIndex: "done", key: "done" },
                   { title: "Просрочено", key: "overdue", render: (_, record: ProjectStats) => record.tasks.filter((task) => task.isOverdue).length },
-                  { title: "Риск", key: "risk", render: (_, record: ProjectStats) => {
-                    const maxRisk = record.tasks.reduce((max, task) => Math.max(max, task.riskLevel ?? 0), 0);
+                  { title: "Приоритет", key: "risk", render: (_, record: ProjectStats) => {
+                    const maxRisk = record.tasks.reduce((max, task) => Math.max(max, task.priority ?? 0), 0);
                     return <Tag color={riskColor(maxRisk)}>{riskLabel(maxRisk)}</Tag>;
                   } },
                   { title: "Прогресс", dataIndex: "avgProgress", key: "progress", render: (value: number) => <Progress percent={value} size="small" /> },
@@ -187,7 +187,7 @@ export function AnalyticsPage() {
                       { title: "Задачи", dataIndex: "tasks", key: "tasks" },
                       { title: "Готово", dataIndex: "done", key: "done" },
                       { title: "Просрочено", dataIndex: "overdue", key: "overdue" },
-                      { title: "Риск", dataIndex: "maxRisk", key: "risk", render: (value: number) => <Tag color={riskColor(value)}>{riskLabel(value)}</Tag> },
+                      { title: "Приоритет", dataIndex: "maxRisk", key: "risk", render: (value: number) => <Tag color={riskColor(value)}>{riskLabel(value)}</Tag> },
                       { title: "Прогресс", dataIndex: "avgProgress", key: "progress", render: (value: number) => <Progress percent={value} size="small" /> },
                       { title: "Часы", dataIndex: "hours", key: "hours", render: (value: number) => round(value) },
                     ]}
@@ -206,7 +206,7 @@ export function AnalyticsPage() {
                       { title: "Задачи", dataIndex: "tasks", key: "tasks" },
                       { title: "Готово", dataIndex: "done", key: "done" },
                       { title: "Просрочено", dataIndex: "overdue", key: "overdue" },
-                      { title: "Риск", dataIndex: "maxRisk", key: "risk", render: (value: number) => <Tag color={riskColor(value)}>{riskLabel(value)}</Tag> },
+                      { title: "Приоритет", dataIndex: "maxRisk", key: "risk", render: (value: number) => <Tag color={riskColor(value)}>{riskLabel(value)}</Tag> },
                       { title: "Прогресс", dataIndex: "avgProgress", key: "progress", render: (value: number) => <Progress percent={value} size="small" /> },
                       { title: "Часы", dataIndex: "hours", key: "hours", render: (value: number) => round(value) },
                     ]}
@@ -226,7 +226,7 @@ async function loadProjectStats(project: Project): Promise<ProjectStats> {
     gqlQuery<{ tasks: Task[] }>(
       `query ($projectId: ID!) {
         tasks(projectId: $projectId) {
-          id code title progress estimatedHours riskLevel isOverdue status { id name code isDone }
+          id code title progress estimatedHours priority isOverdue status { id name code isDone }
           assignee { id fullName department { id name code } }
         }
       }`,

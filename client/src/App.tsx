@@ -36,6 +36,7 @@ export default function App() {
                 name: "projects",
                 list: "/projects",
                 show: "/projects/:id",
+                meta: { label: "Проекты" },
               },
               {
                 name: "tasks",
@@ -62,7 +63,7 @@ export default function App() {
                 meta: { label: "Тайм-трекинг" },
               },
             ]}
-            options={{ syncWithLocation: true, warnWhenUnsavedChanges: true }}
+            options={{ syncWithLocation: true, warnWhenUnsavedChanges: true, DashboardPage: DashboardPage }}
           >
             <Routes>
               <Route path="/login" element={<LoginPage />} />

@@ -3,11 +3,11 @@ export function riskLabel(level?: number | null) {
     case 0:
       return "Низкий";
     case 1:
-      return "Минимальный";
-    case 2:
       return "Средний";
-    case 3:
+    case 2:
       return "Высокий";
+    case 3:
+      return "Критический";
     default:
       return "—";
   }

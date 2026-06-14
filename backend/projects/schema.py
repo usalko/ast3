@@ -97,7 +97,9 @@ class CreateProjectInput:
 @strawberry.input
 class UpdateProjectInput:
     name: str | None = None
+    code: str | None = None
     description: str | None = None
+    type: str | None = None
     status: str | None = None
     planned_start: datetime.date | None = None
     planned_end: datetime.date | None = None

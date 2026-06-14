@@ -28,7 +28,7 @@ export function ProjectForm() {
 
   useEffect(() => {
     if (!id) return;
-    gqlQuery<{ project: Project }>(`query ($id: ID!) { project(id: $id) { id code name description plannedStart plannedEnd } }`, { id }).then((res) => {
+    gqlQuery<{ project: Project }>(`query ($id: ID!) { project(id: $id) { id code name description type plannedStart plannedEnd } }`, { id }).then((res) => {
       const p = res.project;
       form.setFieldsValue({ ...p, plannedStart: p?.plannedStart ? dayjs(p.plannedStart) : undefined, plannedEnd: p?.plannedEnd ? dayjs(p.plannedEnd) : undefined });
     });

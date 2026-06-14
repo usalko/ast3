@@ -136,10 +136,12 @@ class CreateTaskInput:
 class UpdateTaskInput:
     title: str | None = None
     description: str | None = None
+    project_id: strawberry.ID | None = None
     status_id: strawberry.ID | None = None
     priority: int | None = None
     assignee_id: strawberry.ID | None = None
     progress: int | None = None
+    type: str | None = None
     planned_start: datetime.datetime | None = None
     planned_end: datetime.datetime | None = None
     estimated_hours: float | None = None

@@ -17,6 +17,7 @@ type Task = {
   statusId?: string;
   type?: string;
   progress?: number;
+  priority?: number;
   assigneeIds?: string[];
 };
 type TaskFormValues = Omit<Task, "plannedStart" | "plannedEnd"> & {
@@ -38,7 +39,7 @@ export function TaskForm() {
 
   useEffect(() => {
     if (!id) return;
-    gqlQuery<{ task: Task & { assigneeIds?: string[] } }>(`query ($id: ID!) { task(id: $id) { id title description plannedStart plannedEnd estimatedHours projectId statusId assigneeIds type progress } }`, { id }).then(async (res) => {
+    gqlQuery<{ task: Task & { assigneeIds?: string[] } }>(`query ($id: ID!) { task(id: $id) { id title description plannedStart plannedEnd estimatedHours projectId statusId assigneeIds type progress priority } }`, { id }).then(async (res) => {
       const t = res.task;
       if (t?.projectId) {
         await handleProjectChange(t.projectId);
@@ -55,7 +56,7 @@ export function TaskForm() {
   }, [id, form]);
 
   useEffect(() => {
-    if (id) return;
+    // always load projects
     gqlQuery<{ projects: ProjectOption[] }>(`query { projects { id code name } }`)
       .then((res) => setProjects(res.projects ?? []))
       .catch(() => setProjects([]));
@@ -75,9 +76,11 @@ export function TaskForm() {
         description: values.description || "",
         plannedStart: values.plannedStart ? values.plannedStart.toISOString() : null,
         plannedEnd: values.plannedEnd ? values.plannedEnd.toISOString() : null,
-        estimatedHours: values.estimatedHours ?? null,
+        estimatedHours: values.estimatedHours != null ? Number(values.estimatedHours) : null,
+        projectId: values.projectId,
         statusId: values.statusId,
         type: values.type,
+        priority: values.priority != null ? Math.round(Number(values.priority)) : 1,
       };
 
       if (id) {
@@ -124,8 +127,8 @@ export function TaskForm() {
   return (
     <div style={{ padding: 16 }}>
       <Card title={id ? "Редактировать задачу" : "Создать задачу"}>
-        <Form form={form} layout="vertical" onFinish={onFinish} initialValues={{ title: "", description: "", estimatedHours: null, type: "software", progress: 0, assigneeIds: [] }}>
-          {!id && (
+        <Form form={form} layout="vertical" onFinish={onFinish} initialValues={{ title: "", description: "", estimatedHours: null, type: "software", progress: 0, priority: 1, assigneeIds: [] }}>
+
             <Form.Item name="projectId" label="Проект" rules={[{ required: true, message: "Выберите проект" }]}>
               <Select
                 placeholder="Выберите проект"
@@ -133,7 +136,6 @@ export function TaskForm() {
                 options={projects.map((p) => ({ label: `${p.code ? `[${p.code}] ` : ""}${p.name}`, value: p.id }))}
               />
             </Form.Item>
-          )}
           <Form.Item name="statusId" label="Статус" rules={[{ required: true, message: "Выберите статус" }]}>
             <Select
               placeholder="Выберите статус"
@@ -147,6 +149,16 @@ export function TaskForm() {
                 { label: "Производство", value: "hardware" },
                 { label: "Исследование", value: "research" },
                 { label: "Ошибка", value: "bug" },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item name="priority" label="Приоритет">
+            <Select
+              options={[
+                { label: "Низкий", value: 0 },
+                { label: "Средний", value: 1 },
+                { label: "Высокий", value: 2 },
+                { label: "Критический", value: 3 },
               ]}
             />
           </Form.Item>
@@ -179,3 +191,4 @@ export function TaskForm() {
     </div>
   );
 }
+

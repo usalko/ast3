@@ -4,13 +4,8 @@ import type { DataProvider } from "@refinedev/core";
 type GraphQLHeaders = Record<string, string>;
 
 interface GraphQLResponse<T = unknown> {
-  data?: Record<string, T>;
+  data?: { [key: string]: T };
   errors?: { message: string }[];
-}
-
-function unwrapSingle(response: GraphQLResponse, field: string): never[] {
-  const items = (response.data?.[field] ?? []) as never[];
-  return items;
 }
 
 export function dataProvider(url: string): DataProvider {
@@ -34,10 +29,11 @@ export function dataProvider(url: string): DataProvider {
     variables: Record<string, unknown>,
     field: string,
   ): Promise<{ data: T }> => {
-    return client.request<{ [key: string]: T }>(query, variables).then((res) => {
-      const value = res.data?.[field];
+    return client.request<GraphQLResponse<{ [key: string]: T }>>(query, variables).then((res) => {
+      const value = res.data?.[field] as T | undefined;
       if (!value) {
-        throw new Error(res.errors?.map((e) => e.message).join(", ") || `No data for ${field}`);
+        const messages = Array.isArray(res.errors) ? res.errors.map((e: { message: string }) => e.message).join(", ") : "";
+        throw new Error(messages || `No data for ${field}`);
       }
       return { data: value as T };
     });
@@ -84,7 +80,7 @@ export function dataProvider(url: string): DataProvider {
           throw new Error(`getList not implemented for resource: ${resource}`);
       }
 
-      const response = await client.request<{ [key: string]: unknown[] }>(query, variables);
+      const response = await client.request<GraphQLResponse<{ [key: string]: unknown[] }>>(query, variables);
       const items = (response.data?.[field] ?? []) as never[];
       return { data: items, total: items.length };
     },
@@ -106,7 +102,7 @@ export function dataProvider(url: string): DataProvider {
           throw new Error(`getOne not implemented for resource: ${resource}`);
       }
 
-      const response = await client.request<{ [key: string]: unknown }>(query, { id });
+      const response = await client.request<GraphQLResponse<{ [key: string]: unknown }>>(query, { id });
       const data = response.data?.[field];
       if (!data) {
         throw new Error(response.errors?.map((e) => e.message).join(", ") || `Not found`);
@@ -117,13 +113,13 @@ export function dataProvider(url: string): DataProvider {
     create: async ({ resource, variables }) => {
       switch (resource) {
         case "projects": {
-          const input = variables?.variables ?? variables;
+          const input = (variables as { variables?: unknown } | undefined)?.variables ?? variables;
           const mutation = `mutation CreateProject($input: CreateProjectInput!) { createProject(input: $input) { ${projectFields} } }`;
           const { data } = await asBaseMutation<never>(mutation, { input }, "createProject");
           return { data };
         }
         case "tasks": {
-          const input = variables?.variables ?? variables;
+          const input = (variables as { variables?: unknown } | undefined)?.variables ?? variables;
           const mutation = `mutation CreateTask($input: CreateTaskInput!) { createTask(input: $input) { ${taskFields} } }`;
           const { data } = await asBaseMutation<never>(mutation, { input }, "createTask");
           return { data };
@@ -134,7 +130,7 @@ export function dataProvider(url: string): DataProvider {
     },
 
     update: async ({ resource, id, variables }) => {
-      const input = variables?.variables ?? variables;
+      const input = (variables as { variables?: unknown } | undefined)?.variables ?? variables;
       switch (resource) {
         case "projects": {
           const mutation = `mutation UpdateProject($id: ID!, $input: UpdateProjectInput!) { updateProject(id: $id, input: $input) { code } }`;
@@ -160,12 +156,12 @@ export function dataProvider(url: string): DataProvider {
         case "projects": {
           const mutation = `mutation DeleteProject($id: ID!) { deleteProject(id: $id) { success } }`;
           const { data } = await asBaseMutation<{ success: boolean }>(mutation, { id }, "deleteProject");
-          return { data: data as never, ...(variables?.meta ?? {}) };
+          return { data: data as never, ...((variables as { meta?: Record<string, unknown> } | undefined)?.meta ?? {}) };
         }
         case "tasks": {
           const mutation = `mutation DeleteTask($id: ID!) { deleteTask(id: $id) }`;
           const { data } = await asBaseMutation<boolean>(mutation, { id }, "deleteTask");
-          return { data: data as never, ...(variables?.meta ?? {}) };
+          return { data: data as never, ...((variables as { meta?: Record<string, unknown> } | undefined)?.meta ?? {}) };
         }
         default:
           throw new Error(`deleteOne not implemented for resource: ${resource}`);

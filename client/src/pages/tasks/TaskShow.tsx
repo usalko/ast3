@@ -3,10 +3,10 @@ import { useParams } from "react-router-dom";
 import { Card, Descriptions, Button, Modal, message, Tag } from "antd";
 import { useNavigate } from "react-router-dom";
 import { gqlQuery } from "@/api/graphql";
-import { riskColor, riskLabel } from "@/utils/riskLabels";
+import { riskLabel } from "@/utils/riskLabels";
 import { statusLabel } from "@/utils/statusLabels";
 
-type Task = { id: string; title: string; description?: string; plannedStart?: string | null; plannedEnd?: string | null; progress?: number | null; estimatedHours?: number | null; type?: string; priority?: number; isOverdue?: boolean | null; status?: { id: string; name: string; code?: string } | null; assignee?: { fullName?: string | null } | null };
+type Task = { id: string; title: string; description?: string; plannedStart?: string | null; plannedEnd?: string | null; progress?: number | null; estimatedHours?: number | null; type?: string; priority?: number; status?: { id: string; name: string; code?: string } | null; assignees?: { firstName?: string | null }[] | null };
 
 export function TaskShow() {
   const { id } = useParams<{ id: string }>();
@@ -15,7 +15,7 @@ export function TaskShow() {
 
   useEffect(() => {
     if (!id) return;
-    gqlQuery<{ task: Task }>(`query ($id: ID!) { task(id: $id) { id title description plannedStart plannedEnd progress estimatedHours type priority isOverdue status { id name code } assignee { fullName } } }`, { id })
+    gqlQuery<{ task: Task }>(`query ($id: ID!) { task(id: $id) { id title description plannedStart plannedEnd progress estimatedHours type priority status { id name code } assignees { firstName } } }`, { id })
       .then((res) => setTask(res.task ?? null));
   }, [id]);
 
@@ -52,11 +52,11 @@ export function TaskShow() {
         <Descriptions column={1} bordered>
           <Descriptions.Item label="Статус">{statusLabel(task.status?.code, task.status?.name)}</Descriptions.Item>
           <Descriptions.Item label="Тип">{taskTypeLabel(task.type)}</Descriptions.Item>
-          <Descriptions.Item label="Исполнитель">{task.assignee?.fullName ?? "—"}</Descriptions.Item>
+          <Descriptions.Item label="Исполнитель">{(task.assignees ?? []).map((a) => a.firstName).join(", ") || "—"}</Descriptions.Item>
           <Descriptions.Item label="Описание">{task.description}</Descriptions.Item>
           <Descriptions.Item label="План">{task.plannedStart ?? ""} — {task.plannedEnd ?? ""}</Descriptions.Item>
           <Descriptions.Item label="Прогресс">{task.progress ?? 0}%</Descriptions.Item>
-          <Descriptions.Item label="Приоритет"><Tag color={riskColor(task.priority)}>{task.isOverdue ? "Просрочено" : riskLabel(task.priority)}</Tag></Descriptions.Item>
+          <Descriptions.Item label="Приоритет"><Tag color={task.priority !== undefined && task.priority !== null && task.priority >= 2 ? "error" : task.priority === 1 ? "warning" : "default"}>{task.plannedEnd && new Date(task.plannedEnd) < new Date() && (!task.status?.code || task.status.code !== "done") ? "Просрочено" : riskLabel(task.priority)}</Tag></Descriptions.Item>
           <Descriptions.Item label="Оценка">{task.estimatedHours ?? "—"} ч</Descriptions.Item>
         </Descriptions>
       </Card>

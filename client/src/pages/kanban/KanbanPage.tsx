@@ -1,15 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { DragDropContext, Draggable, Droppable, type DropResult } from "@hello-pangea/dnd";
 import { Card, Select, Tag, Space, Typography, Empty, Progress, Button, message, Spin, theme } from "antd";
 import { Link } from "react-router-dom";
 import { gqlQuery } from "@/api/graphql";
-import { riskColor, riskLabel } from "@/utils/riskLabels";
+import { riskLabel } from "@/utils/riskLabels";
 import { statusLabel } from "@/utils/statusLabels";
 
 type Project = { id: string; code?: string; name: string };
 type TaskStatus = { id: string; name: string; code: string; color?: string | null; isDone?: boolean };
-type User = { id: string; fullName?: string | null; position?: string | null };
+type User = { id: string; firstName?: string | null };
 type Task = {
   id: string;
   code?: string;
@@ -18,7 +18,7 @@ type Task = {
   priority?: number;
   isOverdue?: boolean | null;
   status: TaskStatus;
-  assignee?: User | null;
+  assignees?: User[];
   plannedStart?: string | null;
   plannedEnd?: string | null;
 };
@@ -60,7 +60,7 @@ export function KanbanPage() {
         project(id: $projectId) { id statuses { id name code color isDone } }
         tasks(projectId: $projectId) {
           id code title progress priority isOverdue status { id name code color isDone }
-          assignee { id fullName position } plannedStart plannedEnd
+          assignees { id firstName } plannedStart plannedEnd
         }
       }`,
       { projectId }
@@ -235,10 +235,10 @@ styles={{ body: { minHeight: 260, padding: 8 } }}
                                 >
                                     <Space direction="vertical" size={8} style={{ width: "100%" }}>
                                       <Space wrap>
-                                         <Text type="secondary">Исполнитель: {task.assignee?.position ?? task.assignee?.fullName ?? "Без исполнителя"}</Text>
+  <Text type="secondary">Исполнитель: {(task.assignees ?? []).map((a) => a.firstName).join(", ") || "Без исполнителя"}</Text>
                                         <Tag>{task.isOverdue ? "Просрочено" : riskLabel(task.priority)}</Tag>
                                       </Space>
-                                      <Progress percent={task.status?.isDone || task.status?.code === "done" ? 100 : (task.progress ?? 0)} size="small" />
+                                      <Progress percent={task.status?.isDone || task.status?.code === "done" ? 100 : (task.progress ?? 0)} size="small" strokeColor="black" success={{ percent: task.status?.isDone || task.status?.code === "done" ? 100 : (task.progress ?? 0), strokeColor: "black" }} />
 
                                     <Select
                                       size="small"
@@ -266,3 +266,4 @@ styles={{ body: { minHeight: 260, padding: 8 } }}
     </div>
   );
 }
+

@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { Table, message, Button, Modal, Form, Input, Card, Tag, Space, Tooltip, Typography } from "antd";
+import { Table, message, Button, Modal, Form, Input, Card, Space, Tag } from "antd";
 import { gqlQuery } from "@/api/graphql";
 
-const { Text } = Typography;
+type Project = { id: string; code?: string; name: string };
 
 type Task = {
   id: string;
@@ -19,6 +19,7 @@ type User = {
   lastName?: string | null;
   roles?: string[];
   assignedTasks?: Task[];
+  projects?: Project[];
 };
 
 export function TeamPage() {
@@ -31,7 +32,7 @@ export function TeamPage() {
   const loadUsers = async () => {
     setLoading(true);
     try {
-      const res = await gqlQuery<{ users: User[] }>("query { users { id email firstName lastName roles } }");
+      const res = await gqlQuery<{ users: User[] }>("query { users { id email firstName lastName roles projects { id code name } } }");
       const list = res.users ?? [];
       const filtered = list.filter((u) => !(u.roles || []).includes("admin") && u.email !== "admin@test.local");
       const sorted = [...filtered].sort((a, b) => (a.firstName || a.email).localeCompare(b.firstName || b.email));
@@ -96,6 +97,18 @@ export function TeamPage() {
           <span>{record.firstName || record.email}</span>
         </Space>
       ),
+    },
+    {
+      title: "Проекты",
+      key: "projects",
+      render: (_: unknown, record: User) =>
+        record.projects && record.projects.length > 0
+          ? record.projects.map((p) => (
+              <Tag key={p.id} style={{ marginBottom: 2 }}>
+                {p.code ? `[${p.code}] ${p.name}` : p.name}
+              </Tag>
+            ))
+          : <span style={{ opacity: 0.5 }}>—</span>,
     },
     {
       title: "Действия",

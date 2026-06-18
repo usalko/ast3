@@ -1,14 +1,14 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+﻿import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Button, Card, Progress, Select, Space, Table, Tag, Typography, Empty, Spin } from "antd";
 import dayjs from "dayjs";
 import { gqlQuery } from "@/api/graphql";
-import { riskColor, riskLabel } from "@/utils/riskLabels";
+import { riskLabel } from "@/utils/riskLabels";
 
 type Project = { id: string; code?: string; name: string; plannedStart?: string | null; plannedEnd?: string | null };
 type ProjectOption = { id: string; code?: string; name: string };
 type TaskStatus = { id: string; name: string; color?: string | null };
-type User = { id: string; fullName?: string | null };
+type User = { id: string; firstName?: string | null; fullName?: string | null };
 type Dependency = {
   id: string;
   type: string;
@@ -26,6 +26,7 @@ type Task = {
   isOverdue?: boolean | null;
   status: TaskStatus;
   assignee?: User | null;
+  assignees?: User[];
   dependencies?: Dependency[];
 };
 
@@ -57,7 +58,7 @@ export function GanttPage() {
         project(id: $projectId) { id code name plannedStart plannedEnd }
         tasks(projectId: $projectId) {
           id code title plannedStart plannedEnd progress priority isOverdue status { id name color }
-          assignee { id fullName }
+           assignees { id firstName fullName }
           dependencies { id type predecessor { id code title } successor { id code title } }
         }
       }`,
@@ -117,7 +118,7 @@ export function GanttPage() {
           }))}
           placeholder="Выберите проект"
         />
-        <Text strong>{selectedProject ? `${selectedProject.code ? `[${selectedProject.code}] ` : ""}${selectedProject.name}` : "Календарь проектов"}</Text>
+        {!selectedProject && <Text strong>Календарь проектов</Text>}
       </Space>
 
       <Spin spinning={loading}>
@@ -146,7 +147,7 @@ export function GanttPage() {
                         <Tag>{record.task.isOverdue ? "Просрочено" : riskLabel(record.task.priority)}</Tag>
                       </Space>
                       <Text type="secondary">
-                        {record.task.assignee?.fullName ?? "Без исполнителя"} · {record.task.status.name}
+                        {(record.task.assignee?.firstName || (record.task.assignees ?? []).map((a) => a.firstName).join(", ")) || "Без исполнителя"} · {record.task.status.name}
                       </Text>
                       <Text type="secondary">
                         {formatDate(record.task.plannedStart)} — {formatDate(record.task.plannedEnd)}
@@ -163,7 +164,7 @@ export function GanttPage() {
                   title: "Прогресс",
                   key: "progress",
                   width: 160,
-                  render: (_, record) => <Progress percent={record.task.progress ?? 0} size="small" />,
+                  render: (_, record) => <Progress percent={record.task.progress ?? 0} size="small" strokeColor="black" success={{ percent: record.task.progress ?? 0, strokeColor: "black" }} />,
                 },
               ]}
             />
@@ -198,9 +199,9 @@ function renderTimelineScale(min: dayjs.Dayjs, days: number) {
           top: 0,
           width: `${width}%`,
           textAlign: "center",
-          color: "#595959",
+          color: "var(--muted-foreground)",
           fontSize: 12,
-          borderLeft: "1px solid #f0f0f0",
+          borderLeft: "1px solid var(--border)",
           lineHeight: "24px",
         }}
       >
@@ -226,7 +227,7 @@ function renderTimelineScale(min: dayjs.Dayjs, days: number) {
           position: "absolute",
           left: `${left}%`,
           top: 24,
-           color: isToday ? "#4b5563" : "#8c8c8c",
+           color: isToday ? "var(--color-primary)" : "var(--muted-foreground)",
           fontSize: 11,
           transform: "translateX(-50%)",
         }}
@@ -248,7 +249,7 @@ function renderTimelineBar(left: number, width: number, totalDays: number, task:
         position: "relative",
         height: 34,
         borderRadius: 6,
-        background: "repeating-linear-gradient(90deg, #f0f0f0 0, #f0f0f0 1px, transparent 1px, transparent 14.285%)",
+        background: "repeating-linear-gradient(90deg, var(--border) 0, var(--border) 1px, transparent 1px, transparent 14.285%)",
         overflow: "hidden",
       }}
     >
@@ -260,7 +261,7 @@ function renderTimelineBar(left: number, width: number, totalDays: number, task:
           width: `${widthPercent}%`,
           height: 16,
           borderRadius: 8,
-          backgroundColor: "#4b5563",
+          backgroundColor: "black",
           opacity: 0.85,
         }}
         title={`${task.title}: ${formatDate(task.plannedStart)} — ${formatDate(task.plannedEnd)}`}
@@ -272,3 +273,5 @@ function renderTimelineBar(left: number, width: number, totalDays: number, task:
 function formatDate(value?: string | null) {
   return value ? dayjs(value).format("DD.MM.YYYY") : "—";
 }
+
+

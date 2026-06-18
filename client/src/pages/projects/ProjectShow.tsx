@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { Card, Descriptions, List, Button, Modal, Form, Input, DatePicker, message, Select, Tag, Progress, Popconfirm, Switch } from "antd";
+import { Card, Descriptions, List, Button, Modal, Form, Input, DatePicker, message, Select, Tag, Progress, Popconfirm, Switch, Space } from "antd";
 import { gqlQuery } from "@/api/graphql";
 import { riskColor, riskLabel } from "@/utils/riskLabels";
 import { statusLabel } from "@/utils/statusLabels";
@@ -57,6 +57,20 @@ export function ProjectShow() {
     }
   }
 
+  async function handleDeleteTask(taskId: string) {
+    try {
+      await gqlQuery(
+        `mutation ($id: ID!) { deleteTask(id: $id) }`,
+        { id: taskId }
+      );
+      setTasks((current) => current.filter((t) => t.id !== taskId));
+      message.success("Задача удалена");
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : "";
+      message.error(`Не удалось удалить задачу${detail ? `: ${detail}` : ""}`);
+    }
+  }
+
   async function handleToggleStatus(checked: boolean) {
     if (!id || !project) return;
     try {
@@ -91,7 +105,7 @@ export function ProjectShow() {
       </Card>
 
       <div style={{ marginTop: 12 }}>
-        <Button type="primary" style={{ marginRight: 8 }} onClick={() => navigate(`/projects/${project.id}/edit`)}>Редактировать проект</Button>
+        <Button style={{ marginRight: 8 }} onClick={() => navigate(`/projects/${project.id}/edit`)}>Редактировать проект</Button>
         <Button style={{ marginRight: 8 }} onClick={() => navigate(`/kanban?projectId=${project.id}`)}>Канбан</Button>
         <Button style={{ marginRight: 8 }} onClick={() => navigate(`/projects/${project.id}/gantt`)}>Gantt</Button>
         <Popconfirm
@@ -103,7 +117,7 @@ export function ProjectShow() {
         >
           <Button danger>Удалить проект</Button>
         </Popconfirm>
-        <Button onClick={() => setTaskModalVisible(true)}>Создать задачу</Button>
+        <Button type="primary" onClick={() => setTaskModalVisible(true)}>Создать задачу</Button>
       </div>
 
       {/* task create modal */}
@@ -118,16 +132,21 @@ export function ProjectShow() {
         dataSource={tasks}
         locale={{ emptyText: "Пока нет задач" }}
         renderItem={(t) => (
-          <List.Item actions={[<Link key="open" to={`/tasks/${t.id}`}><Button>Открыть</Button></Link>]}>
+          <List.Item actions={[
+            <Link key="open" to={`/tasks/${t.id}`}><Button>Открыть</Button></Link>,
+            <Popconfirm key="delete" title="Удалить задачу?" okText="Удалить" cancelText="Отмена" onConfirm={() => handleDeleteTask(t.id)}>
+              <Button danger size="small">Удалить</Button>
+            </Popconfirm>,
+          ]} style={{ paddingTop: 6, paddingBottom: 6 }}>
             <List.Item.Meta
               title={
-                <span>
-                  {t.status?.name && <Tag color={t.status.color ?? "default"}>{statusLabel(t.status.code, t.status.name)}</Tag>}
-                  <Tag color={riskColor(t.priority)}>{t.isOverdue ? "Просрочено" : riskLabel(t.priority)}</Tag>
-                  <Link to={`/tasks/${t.id}`}>{t.title}</Link>
+                <span style={{ fontSize: 18 }}>
+                  {t.status?.name && <Tag color={t.status.color ?? "default"} style={{ fontSize: 14, padding: "2px 10px" }}>{statusLabel(t.status.code, t.status.name)}</Tag>}
+                  <Tag color={riskColor(t.priority)} style={{ fontSize: 14, padding: "2px 10px" }}>{t.isOverdue ? "Просрочено" : riskLabel(t.priority)}</Tag>
+                  <Link to={`/tasks/${t.id}`} style={{ fontSize: 18, color: "#000" }}>{t.title}</Link>
                 </span>
               }
-              description={`${t.plannedStart ?? "—"} → ${t.plannedEnd ?? "—"}`}
+              description={<span style={{ fontSize: 15 }}>{`${t.plannedStart ? formatDateNoSeconds(t.plannedStart) : "—"} → ${t.plannedEnd ? formatDateNoSeconds(t.plannedEnd) : "—"}`}</span>}
             />
             <Progress percent={t.progress ?? 0} style={{ width: 160 }} size="small" />
           </List.Item>
@@ -135,6 +154,21 @@ export function ProjectShow() {
       />
     </div>
   );
+}
+
+function formatDateNoSeconds(value: string) {
+  if (!value) return "—";
+  try {
+    const d = new Date(value);
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year = d.getFullYear();
+    const hours = String(d.getHours()).padStart(2, "0");
+    const minutes = String(d.getMinutes()).padStart(2, "0");
+    return `${day}.${month}.${year} ${hours}:${minutes}`;
+  } catch {
+    return value;
+  }
 }
 
 function TaskCreateForm({ projectId, onCreated }: { projectId: string; onCreated: () => void }) {
@@ -191,10 +225,10 @@ function TaskCreateForm({ projectId, onCreated }: { projectId: string; onCreated
         <Input.TextArea rows={3} />
       </Form.Item>
       <Form.Item name="plannedStart" label="План старт">
-        <DatePicker showTime />
+        <DatePicker showTime={{ format: 'HH:mm' }} format="DD.MM.YYYY HH:mm" />
       </Form.Item>
       <Form.Item name="plannedEnd" label="План конец">
-        <DatePicker showTime />
+        <DatePicker showTime={{ format: 'HH:mm' }} format="DD.MM.YYYY HH:mm" />
       </Form.Item>
       <Form.Item>
         <Button type="primary" htmlType="submit">Создать</Button>

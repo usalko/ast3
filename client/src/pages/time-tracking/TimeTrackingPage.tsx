@@ -2,11 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Button, Card, Col, DatePicker, Form, Input, Row, Select, Space, Table, Tag, Typography, message, Alert } from "antd";
 import dayjs, { type Dayjs } from "dayjs";
 import { gqlQuery } from "@/api/graphql";
-import { riskColor, riskLabel } from "@/utils/riskLabels";
+import { riskLabel } from "@/utils/riskLabels";
 import { statusLabel } from "@/utils/statusLabels";
 
 type Project = { id: string; code?: string; name: string };
-type User = { id: string; fullName?: string | null };
+type User = { id: string; firstName?: string | null; fullName?: string | null };
 type TaskStatus = { id: string; name: string; code?: string };
 type Task = {
   id: string;
@@ -17,7 +17,7 @@ type Task = {
   priority?: number;
   isOverdue?: boolean | null;
   status: TaskStatus;
-  assignee?: User | null;
+  assignees?: User[];
 };
 type TimeEntry = {
   id: string;
@@ -79,7 +79,7 @@ export function TimeTrackingPage() {
         const res = await gqlQuery<{ tasks: Task[] }>(
           `query ($projectId: ID!) {
             tasks(projectId: $projectId) {
-              id code title progress estimatedHours priority isOverdue status { id name } assignee { id fullName }
+              id code title progress estimatedHours priority isOverdue status { id name } assignees { id firstName fullName }
             }
           }`,
           { projectId: project }
@@ -201,7 +201,7 @@ export function TimeTrackingPage() {
       setEntries((current) => [res.stopTimer, ...current]);
       // Re-fetch the task to add it back to visible list
       const taskRes = await gqlQuery<{ task: Task }>(
-        `query ($id: ID!) { task(id: $id) { id code title progress estimatedHours priority isOverdue status { id name } assignee { id fullName } } }`,
+        `query ($id: ID!) { task(id: $id) { id code title progress estimatedHours priority isOverdue status { id name } assignees { id fullName } } }`,
         { id: res.stopTimer.task.id }
       );
       if (taskRes?.task) {
@@ -278,7 +278,7 @@ export function TimeTrackingPage() {
           </Card>
         </Col>
 
-        <Col span={12}>
+        <Col span={24}>
           <Card title="Задачи проекта" loading={loading}>
             <Table
               rowKey="id"
@@ -290,7 +290,7 @@ export function TimeTrackingPage() {
                 { title: "Название", dataIndex: "title", key: "title", render: (value: string, record: Task) => (
                   <Space direction="vertical" size={2}>
                     <Text strong>{value}</Text>
-                    <Text type="secondary">{record.assignee?.fullName ?? "Без исполнителя"}</Text>
+                    <Text type="secondary">{(record.assignees ?? []).map((a) => a.firstName).join(", ") || "Без исполнителя"}</Text>
                   </Space>
                 ) },
                 { title: "Статус", dataIndex: ["status", "name"], key: "status", render: (value: string | undefined, record: Task) => <Tag>{statusLabel(record.status.code, value ?? record.status.name)}</Tag> },
@@ -302,47 +302,8 @@ export function TimeTrackingPage() {
           </Card>
         </Col>
 
-        <Col span={12}>
-          <Card title="Ручная запись времени">
-            <Form form={manualForm} layout="vertical" onFinish={handleManualSubmit}>
-              <Form.Item name="taskId" label="Задача" rules={[{ required: true, message: "Выберите задачу" }]}>
-                <Select placeholder="Выберите задачу" options={taskOptions} disabled={taskOptions.length === 0} />
-              </Form.Item>
-              <Row gutter={12}>
-                <Col span={12}>
-                  <Form.Item name="startTime" label="Начало" rules={[{ required: true, message: "Укажите начало" }]}>
-                    <DatePicker showTime style={{ width: "100%" }} />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item name="endTime" label="Конец" rules={[{ required: true, message: "Укажите конец" }]}>
-                    <DatePicker showTime style={{ width: "100%" }} />
-                  </Form.Item>
-                </Col>
-              </Row>
-              <Form.Item name="description" label="Описание">
-                <Input.TextArea rows={2} />
-              </Form.Item>
-              <Button type="primary" htmlType="submit">Создать запись</Button>
-            </Form>
-          </Card>
-
-          <Card title="Итого по задачам" style={{ marginTop: 16 }}>
-            <Table
-              rowKey={(record) => record.task.id}
-              dataSource={totals}
-              pagination={false}
-              size="small"
-              columns={[
-                { title: "Задача", dataIndex: ["task", "title"], key: "task" },
-                { title: "Часы", dataIndex: "minutes", key: "minutes", render: (value: number) => (value / 60).toFixed(1) },
-              ]}
-            />
-          </Card>
-        </Col>
-
         <Col span={24}>
-          <Card title="Мои записи времени" loading={loading}>
+          <Card title="Итого по задачам">
             <Table
               rowKey="id"
               dataSource={entries}

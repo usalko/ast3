@@ -10,6 +10,7 @@ import strawberry_django
 from strawberry import auto
 
 from accounts.schema import UserType
+from projects.models import Project
 
 from .models import Task, TaskDependency, TaskStatus, TaskAssignment
 
@@ -148,6 +149,22 @@ class UpdateTaskInput:
 
 
 @strawberry.type
+class BacklogTaskProjectInfo:
+    id: strawberry.ID
+    code: str | None = None
+    name: str
+
+
+@strawberry.type
+class BacklogTaskItem:
+    id: strawberry.ID
+    code: str | None = None
+    title: str
+    project: BacklogTaskProjectInfo
+    created_at: datetime.datetime | None = None
+
+
+@strawberry.type
 class TasksQuery:
     @strawberry_django.field
     def tasks(self, project_id: strawberry.ID) -> list[TaskType]:
@@ -171,11 +188,34 @@ class TasksQuery:
             .exclude(status__is_cancelled=True)
             .select_related("status", "assignee", "assignee__department")
             .prefetch_related("dependencies__predecessor", "dependencies__successor")
+            .distinct()
         )
 
     @strawberry_django.field
     def tasks_all(self) -> list[TaskType]:
         return Task.objects.all().select_related("status", "project", "assignee")
+
+    @strawberry.field
+    def backlog_tasks(self) -> list[BacklogTaskItem]:
+        tasks = (
+            Task.objects.filter(status__code="backlog")
+            .select_related("project")
+            .order_by("-created_at")
+        )
+        result = []
+        for t in tasks:
+            result.append(BacklogTaskItem(
+                id=strawberry.ID(str(t.id)),
+                code=t.code,
+                title=t.title,
+                project=BacklogTaskProjectInfo(
+                    id=strawberry.ID(str(t.project.id)),
+                    code=t.project.code,
+                    name=t.project.name,
+                ),
+                created_at=t.created_at,
+            ))
+        return result
 
 
 @strawberry.type
@@ -334,22 +374,17 @@ def _delete_task_sync(
     task = Task.objects.select_related("project").get(pk=id)
     require_project_member(info, project_id=str(task.project_id))
 
-    cancelled_status = TaskStatus.objects.filter(
-        project_id=task.project_id,
-        code="cancelled",
-    ).first()
-    if cancelled_status:
-        task.status = cancelled_status
-        task.save(update_fields=["status_id", "updated_at"])
-    else:
-        task.delete()
+    task_id_str = str(task.id)
+    task_code = task.code
+    project_id_str = str(task.project_id)
+    task.delete()
 
     AuditLog.log(
         actor=info.context.request.user,
         action="task.delete",
         resource_type="task",
-        resource_id=str(task.id),
-        payload={"project_id": str(task.project_id)},
+        resource_id=task_id_str,
+        payload={"code": task_code, "project_id": project_id_str},
         request=info.context.request,
     )
     return True

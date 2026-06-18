@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Form, Input, Button, DatePicker, InputNumber, Card, message, Select } from "antd";
 import { useNavigate, useParams } from "react-router-dom";
 import dayjs from "dayjs";
@@ -24,7 +24,7 @@ type TaskFormValues = Omit<Task, "plannedStart" | "plannedEnd"> & {
   plannedStart?: Dayjs | null;
   plannedEnd?: Dayjs | null;
 };
-type User = { id: string; fullName: string };
+type User = { id: string; firstName: string };
 type TaskStatus = { id: string; name: string; code: string };
 type ProjectOption = { id: string; code?: string; name: string };
 
@@ -36,17 +36,20 @@ export function TaskForm() {
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [saving, setSaving] = useState(false);
+  const existingIdsRef = useRef<string[]>([]);
 
   useEffect(() => {
     if (!id) return;
     gqlQuery<{ task: Task & { assigneeIds?: string[] } }>(`query ($id: ID!) { task(id: $id) { id title description plannedStart plannedEnd estimatedHours projectId statusId assigneeIds type progress priority } }`, { id }).then(async (res) => {
       const t = res.task;
+      const ids = t.assigneeIds ?? [];
+      existingIdsRef.current = ids;
       if (t?.projectId) {
         await handleProjectChange(t.projectId);
       }
       form.setFieldsValue({
         ...t,
-        assigneeIds: t.assigneeIds ?? [],
+        assigneeIds: ids,
         plannedStart: t?.plannedStart ? dayjs(t.plannedStart) : undefined,
         plannedEnd: t?.plannedEnd ? dayjs(t.plannedEnd) : undefined,
       });
@@ -63,8 +66,14 @@ export function TaskForm() {
   }, [id]);
 
   useEffect(() => {
-    gqlQuery<{ users: { id: string; fullName: string; roles?: string[] }[] }>(`query { users { id fullName roles } }`)
-      .then((res) => setUsers((res.users ?? []).filter((u) => !(u.roles ?? []).includes("admin"))))
+     gqlQuery<{ users: { id: string; firstName: string; roles?: string[] }[] }>(`query { users { id firstName roles } }`)
+      .then((res) => {
+        const list = (res.users ?? []).filter((u) => !(u.roles ?? []).includes("admin"));
+        setUsers(list);
+        if (id && existingIdsRef.current.length > 0) {
+          form.setFieldsValue({ assigneeIds: existingIdsRef.current });
+        }
+      })
       .catch(() => setUsers([]));
   }, []);
 
@@ -83,23 +92,26 @@ export function TaskForm() {
         priority: values.priority != null ? Math.round(Number(values.priority)) : 1,
       };
 
+      const projectId = values.projectId;
+
       if (id) {
         input.progress = values.progress;
         await gqlQuery(`mutation ($id: ID!, $input: UpdateTaskInput!) { updateTask(id: $id, input: $input) { id } }`, { id, input });
       } else {
-        const createInput = { ...input, projectId: values.projectId };
+        const createInput = { ...input, projectId };
         await gqlQuery(`mutation ($input: CreateTaskInput!) { createTask(input: $input) { id } }`, { input: createInput });
       }
 
       if (id) {
+        const uid = values.assigneeIds !== undefined ? values.assigneeIds : existingIdsRef.current;
         await gqlQuery(`mutation ($taskId: ID!, $userIds: [ID!]!) { setTaskAssignees(taskId: $taskId, userIds: $userIds) }`, {
           taskId: id,
-          userIds: values.assigneeIds ?? [],
+          userIds: uid,
         });
       }
 
       message.success(id ? "Задача обновлена" : "Задача создана");
-      navigate(-1);
+      navigate(`/projects/${projectId}`);
     } catch (err) {
       const detail = err instanceof Error ? err.message : "";
       message.error(`Ошибка при сохранении задачи${detail ? `: ${detail}` : ""}`);
@@ -127,7 +139,7 @@ export function TaskForm() {
   return (
     <div style={{ padding: 16 }}>
       <Card title={id ? "Редактировать задачу" : "Создать задачу"}>
-        <Form form={form} layout="vertical" onFinish={onFinish} initialValues={{ title: "", description: "", estimatedHours: null, type: "software", progress: 0, priority: 1, assigneeIds: [] }}>
+         <Form key={id || "create"} form={form} layout="vertical" onFinish={onFinish} initialValues={{ title: "", description: "", estimatedHours: null, type: "software", progress: 0, priority: 1, assigneeIds: undefined }}>
 
             <Form.Item name="projectId" label="Проект" rules={[{ required: true, message: "Выберите проект" }]}>
               <Select
@@ -163,7 +175,7 @@ export function TaskForm() {
             />
           </Form.Item>
           <Form.Item name="assigneeIds" label="Исполнители">
-            <Select mode="multiple" allowClear placeholder="Выберите исполнителей" options={users.map((user) => ({ label: user.fullName, value: user.id }))} />
+              <Select mode="multiple" allowClear placeholder="Выберите исполнителей" options={users.map((user) => ({ label: user.firstName, value: user.id }))} />
           </Form.Item>
           <Form.Item name="progress" label="Прогресс">
             <Select options={[0, 25, 50, 75, 100].map((value) => ({ label: `${value}%`, value }))} />
@@ -175,10 +187,10 @@ export function TaskForm() {
             <Input.TextArea rows={3} />
           </Form.Item>
           <Form.Item name="plannedStart" label="План старт">
-            <DatePicker showTime />
+            <DatePicker showTime={{ format: 'HH:mm' }} format="DD.MM.YYYY HH:mm" />
           </Form.Item>
           <Form.Item name="plannedEnd" label="План конец">
-            <DatePicker showTime />
+            <DatePicker showTime={{ format: 'HH:mm' }} format="DD.MM.YYYY HH:mm" />
           </Form.Item>
           <Form.Item name="estimatedHours" label="Оценка (часы)">
             <InputNumber min={0} />

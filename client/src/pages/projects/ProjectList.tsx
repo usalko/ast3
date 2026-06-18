@@ -5,7 +5,7 @@ import { gqlQuery } from "@/api/graphql";
 
 const { Text } = Typography;
 
-type Project = {
+type ProjectWithTasks = {
   id: string;
   code?: string;
   name: string;
@@ -14,16 +14,33 @@ type Project = {
   type?: string;
   status?: string;
   progress?: number | null;
+  taskCount?: number;
 };
 
 export function ProjectList() {
-  const [data, setData] = useState<Project[]>([]);
+  const [data, setData] = useState<ProjectWithTasks[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     setLoading(true);
-    gqlQuery<{ projects: Project[] }>(`query { projects { id code name plannedStart plannedEnd type status progress } }`)
-      .then((res) => setData((res.projects || []).filter((project) => project.status !== "cancelled")))
+    gqlQuery<{ projects: ProjectWithTasks[] }>(`query { projects { id code name plannedStart plannedEnd type status progress } }`)
+      .then(async (res) => {
+        const list = res.projects || [];
+        const withCounts = await Promise.all(
+          list.map(async (p) => {
+            try {
+              const r = await gqlQuery<{ tasks: { id: string }[] }>(
+                `query ($pid: ID!) { tasks(projectId: $pid) { id } }`,
+                { pid: p.id }
+              );
+              return { ...p, taskCount: r.tasks?.length ?? 0 };
+            } catch {
+              return { ...p, taskCount: 0 };
+            }
+          })
+        );
+        setData(withCounts);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -46,32 +63,26 @@ export function ProjectList() {
         </Link>
       </Space>
 
-      <Table<Project>
+      <Table<ProjectWithTasks>
         rowKey="id"
         dataSource={data}
         loading={loading}
         pagination={{ pageSize: 10 }}
       >
-        <Table.Column<Project> title="Код" dataIndex="code" key="code" render={(v) => <Text code>{v}</Text>} />
-        <Table.Column<Project> title="Название" dataIndex="name" key="name" render={(v, r) => <Link to={`/projects/${r.id}`}>{v}</Link>} />
-        <Table.Column<Project> title="Тип" dataIndex="type" key="type" render={(v) => projectTypeLabel(v)} />
-        <Table.Column<Project> title="Статус" dataIndex="status" key="status" render={(v) => projectStatusLabel(v)} />
-        <Table.Column<Project> title="План старт" dataIndex="plannedStart" key="plannedStart" />
-        <Table.Column<Project> title="План конец" dataIndex="plannedEnd" key="plannedEnd" />
-        <Table.Column<Project> title="Прогресс" dataIndex="progress" key="progress" render={(v) => (v ?? 0) + "%"} />
-        <Table.Column<Project>
+        <Table.Column<ProjectWithTasks> title="Код" dataIndex="code" key="code" render={(v) => <Text code>{v}</Text>} />
+        <Table.Column<ProjectWithTasks> title="Название" dataIndex="name" key="name" render={(v, r) => <Link to={`/projects/${r.id}`} style={{ color: "#000" }}>{v}</Link>} />
+        <Table.Column<ProjectWithTasks> title="Тип" dataIndex="type" key="type" render={(v) => projectTypeLabel(v)} />
+        <Table.Column<ProjectWithTasks> title="Задачи" key="taskCount" render={(_, r) => r.taskCount ?? 0} />
+        <Table.Column<ProjectWithTasks> title="План старт" dataIndex="plannedStart" key="plannedStart" />
+        <Table.Column<ProjectWithTasks> title="План конец" dataIndex="plannedEnd" key="plannedEnd" />
+        <Table.Column<ProjectWithTasks> title="Прогресс" dataIndex="progress" key="progress" render={(v) => (v ?? 0) + "%"} />
+        <Table.Column<ProjectWithTasks>
           title="Действия"
           key="actions"
           render={(_, record) => (
             <Space>
               <Link to={`/projects/${record.id}`}>
                 <Button>Открыть</Button>
-              </Link>
-              <Link to={`/kanban?projectId=${record.id}`}>
-                <Button>Канбан</Button>
-              </Link>
-              <Link to={`/projects/${record.id}/gantt`}>
-                <Button>Gantt</Button>
               </Link>
               <Popconfirm
                 title="Удалить проект?"
@@ -94,12 +105,4 @@ function projectTypeLabel(value?: string) {
   if (value === "hardware") return "Производство";
   if (value === "research") return "Исследования";
   return "ПО";
-}
-
-function projectStatusLabel(value?: string) {
-  if (value === "active") return "Активен";
-  if (value === "on_hold") return "На паузе";
-  if (value === "completed") return "Завершён";
-  if (value === "cancelled") return "Отменён";
-  return value ?? "—";
 }

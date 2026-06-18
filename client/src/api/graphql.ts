@@ -4,7 +4,7 @@ type GraphQLHeaders = Record<string, string>;
 type GraphQLErrorLike = {
   name?: string;
   message?: string;
-  response?: { status?: number };
+  response?: { status?: number; errors?: { message?: string }[] };
 };
 
 const GRAPHQL_URL = import.meta.env.VITE_GRAPHQL_URL ?? "/graphql/";

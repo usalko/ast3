@@ -1,10 +1,10 @@
-﻿import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Card, Col, Progress, Row, Statistic, Table, Tag, Typography, Empty, Spin, Tooltip, theme } from "antd";
 import { CheckCircleFilled, ClockCircleFilled, ExclamationCircleFilled, ProjectFilled, UnorderedListOutlined, UserOutlined, TeamOutlined, FireOutlined } from "@ant-design/icons";
 import { gqlQuery } from "@/api/graphql";
 
 type Department = { id: string; name: string; code?: string };
-type User = { id: string; fullName?: string | null; department?: Department | null };
+type User = { id: string; firstName?: string | null; fullName?: string | null; department?: Department | null };
 type Project = {
   id: string; code?: string; name: string; type?: string; status?: string;
   progress?: number | null; plannedStart?: string | null; plannedEnd?: string | null;
@@ -16,7 +16,7 @@ type Task = {
   id: string; code?: string; title: string; progress?: number | null;
   estimatedHours?: number | null; priority?: number;
   isOverdue?: boolean | null; status: TaskStatus;
-  assignee?: User | null; project?: { id: string; code?: string; name: string } | null;
+  assignees?: User[]; project?: { id: string; code?: string; name: string } | null;
 };
 type TimeEntry = {
   id: string; durationMinutes?: number | null; durationHours?: number | null;
@@ -53,6 +53,12 @@ function monthLabel(key: string) {
 
 function round(v: number) { return Math.round(v * 10) / 10; }
 
+function blackProgress(v: number) { return <Progress percent={v} size="small" strokeColor="#000" success={{ percent: v, strokeColor: "#000" }} />; }
+
+function blackTag(label: ReactNode) {
+  return <Tag style={{ color: "#000", borderColor: "#000", background: "#fff" }}>{label}</Tag>;
+}
+
 export function AnalyticsPage() {
   const { token } = theme.useToken();
   const [loading, setLoading] = useState(false);
@@ -79,7 +85,7 @@ export function AnalyticsPage() {
             tasks(projectId: $pid) {
               id code title progress estimatedHours priority isOverdue
               status { id name code isDone }
-              assignee { id fullName department { id name code } }
+              assignees { id firstName fullName department { id name code } }
             }
           }`, { pid: p.id }),
           safeQuery<{ timeEntries: TimeEntry[] }>(`query ($pid: ID!) {
@@ -119,7 +125,7 @@ export function AnalyticsPage() {
 
   const timeline = useMemo(() => {
     const projectMonths: { project: Project; months: string[]; color: string }[] = [];
-    const colors = ["#6b7b6e", "#a8987a", "#b87a7a", "#8b8b8b", "#7a8b9a", "#9a7a8b", "#8b9a7a", "#9a8b7a"];
+    const colors = ["#000", "#333", "#666", "#999", "#111", "#444", "#777", "#aaa"];
     const now = new Date();
     const currYear = now.getFullYear();
     const currM = now.getMonth() + 1;
@@ -178,7 +184,7 @@ export function AnalyticsPage() {
       const actualHours = entries.reduce((s, e) => s + (e.durationHours ?? (e.durationMinutes ?? 0) / 60), 0);
       const members = new Set<string>();
       entries.forEach((e) => { if (e.user?.id) members.add(e.user.id); });
-      tasks.forEach((t) => { if (t.assignee?.id) members.add(t.assignee.id); });
+      tasks.forEach((t) => { (t.assignees ?? []).forEach((a) => { if (a.id) members.add(a.id); }); });
       return { project: p, tasks, done, cancelled, overdue, highPriority, avgProgress, estimatedHours, actualHours, members: members.size };
     });
   }, [projects, tasksByProject, entriesByProject]);
@@ -189,7 +195,17 @@ export function AnalyticsPage() {
       const pTasks = tasksByProject[p.id]?.filter((t) => t.status.code !== "backlog") ?? [];
       const pEntries = entriesByProject[p.id] ?? [];
       for (const task of pTasks) {
-        const u = task.assignee ?? { id: "unassigned", fullName: "Без исполнителя", department: null };
+        const assigneeList = task.assignees ?? [];
+        if (assigneeList.length === 0) {
+          const c = g.get("unassigned") ?? { user: { id: "unassigned", fullName: "Без исполнителя", department: null }, tasks: 0, done: 0, overdue: 0, progress: [], hours: 0, projects: new Set() };
+          c.tasks += 1;
+          if (task.status.isDone || task.status.code === "done") c.done += 1;
+          if (task.isOverdue) c.overdue += 1;
+          c.progress.push(task.progress ?? 0);
+          c.projects.add(p.name);
+          g.set("unassigned", c);
+        }
+        for (const u of assigneeList) {
         const c = g.get(u.id) ?? { user: u, tasks: 0, done: 0, overdue: 0, progress: [], hours: 0, projects: new Set() };
         c.tasks += 1;
         if (task.status.isDone || task.status.code === "done") c.done += 1;
@@ -197,6 +213,7 @@ export function AnalyticsPage() {
         c.progress.push(task.progress ?? 0);
         c.projects.add(p.name);
         g.set(u.id, c);
+      }
       }
       for (const entry of pEntries) {
         if (entry.user?.id) {
@@ -238,16 +255,16 @@ export function AnalyticsPage() {
       <Spin spinning={loading}>
         <div style={{ marginBottom: 24 }}>
           <TypTitle level={4} style={{ margin: 0 }}>Аналитика</TypTitle>
-          <Text type="secondary">Статистика по проектам, людям и загрузке</Text>
+          <Text style={{ color: "#000", opacity: 0.55 }}>Статистика по проектам, людям и загрузке</Text>
         </div>
 
         <Row gutter={[12, 12]}>
-          <Col xs={12} lg={3}><Card size="small"><Statistic title="Проекты" value={totals.projectCount} suffix={`/ ${totals.activeCount} акт.`} prefix={<ProjectFilled />} /></Card></Col>
-          <Col xs={12} lg={3}><Card size="small"><Statistic title="Задачи" value={totals.taskCount} prefix={<UnorderedListOutlined />} /></Card></Col>
-          <Col xs={12} lg={3}><Card size="small"><Statistic title="Готово" value={totals.doneCount} suffix={`/ ${totals.taskCount}`} prefix={<CheckCircleFilled />} /></Card></Col>
+          <Col xs={12} lg={3}><Card size="small"><Statistic title="Проекты" value={totals.projectCount} suffix={`/ ${totals.activeCount} акт.`} prefix={<ProjectFilled style={{ color: "#000" }} />} /></Card></Col>
+          <Col xs={12} lg={3}><Card size="small"><Statistic title="Задачи" value={totals.taskCount} prefix={<UnorderedListOutlined style={{ color: "#000" }} />} /></Card></Col>
+          <Col xs={12} lg={3}><Card size="small"><Statistic title="Готово" value={totals.doneCount} suffix={`/ ${totals.taskCount}`} prefix={<CheckCircleFilled style={{ color: "#000" }} />} /></Card></Col>
           <Col xs={12} lg={3}><Card size="small"><Statistic title="Отменено" value={totals.cancelledCount} /></Card></Col>
-          <Col xs={12} lg={3}><Card size="small"><Statistic title="Просрочено" value={totals.overdueCount} prefix={<ClockCircleFilled />} /></Card></Col>
-          <Col xs={12} lg={3}><Card size="small"><Statistic title="Высокий приоритет" value={totals.highPriorityCount} prefix={<ExclamationCircleFilled />} /></Card></Col>
+          <Col xs={12} lg={3}><Card size="small"><Statistic title="Просрочено" value={totals.overdueCount} prefix={<ClockCircleFilled style={{ color: "#000" }} />} /></Card></Col>
+          <Col xs={12} lg={3}><Card size="small"><Statistic title="Высокий приоритет" value={totals.highPriorityCount} prefix={<ExclamationCircleFilled style={{ color: "#000" }} />} /></Card></Col>
           <Col xs={12} lg={3}><Card size="small"><Statistic title="Прогресс" value={totals.avgProgress} suffix="%" /></Card></Col>
           <Col xs={12} lg={3}><Card size="small"><Statistic title="Часов всего" value={round(totals.actualHours)} precision={1} /></Card></Col>
 </Row>
@@ -256,71 +273,19 @@ export function AnalyticsPage() {
           <Empty description="Нет данных" style={{ marginTop: 48 }} />
         ) : (
           <>
-            {highPriorityTasksList.length > 0 && (
-              <Card title={<span><FireOutlined style={{ marginRight: 6 }} /> Задачи высокого приоритета</span>} style={{ marginTop: 16 }}>
-                <Table rowKey="id" dataSource={highPriorityTasksList} pagination={{ pageSize: 10, size: "small" }} size="small"
-columns={[
-                      { title: "Код", dataIndex: "code", key: "code", render: (v) => <Tag color="default">{v}</Tag>, width: 80 },
-                      { title: "Задача", dataIndex: "title", key: "title", ellipsis: true, render: (v) => <span style={{ paddingLeft: 10 }}>{v}</span> },
-                      { title: "Проект", key: "project", render: (_, r) => <span><Text strong>{r.project?.code}</Text> <Text type="secondary" style={{ fontSize: 12 }}>{r.project?.name}</Text></span> },
-                      { title: "Прогресс", dataIndex: "progress", key: "progress", render: (v) => <Progress percent={v ?? 0} size="small" />, width: 100 },
-                      { title: "Статус", key: "status", render: (_, r) => <Tag color={r.status.isDone ? "green" : r.status.isCancelled ? "default" : "blue"}>{r.status.name}</Tag>, width: 90 },
-                      { title: "Исполнитель", key: "assignee", render: (_, r) => r.assignee?.fullName ?? "—" },
-                      { title: "Просрочена", key: "overdue", render: (_, r) => r.isOverdue ? <Tag>Да</Tag> : <Tag>Нет</Tag>, width: 80 },
-                    ]}
-                  locale={{ emptyText: "Нет задач высокого приоритета" }}
-                />
-              </Card>
-            )}
-
-            {timeline.sortedMonths.length > 0 && (
-              <Card title="Календарь проектов" style={{ marginTop: 16 }}>
-                <div style={{ overflowX: "auto" }}>
-                  <table style={{ borderCollapse: "collapse", fontSize: 12, minWidth: "100%" }}>
-                    <thead>
-                      <tr>
-                        <th style={{ padding: "4px 12px", textAlign: "left", whiteSpace: "nowrap" }}>Проект</th>
-                        {timeline.sortedMonths.map((m) => (
-                           <th key={m} style={{ padding: "4px 2px", textAlign: "center", minWidth: 60, color: "#8b8b8b", fontWeight: 400 }}>{monthLabel(m)}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {timeline.projectMonths.map((pm) => (
-                        <tr key={pm.project.id}>
-                          <td style={{ padding: "6px 12px", whiteSpace: "nowrap", fontWeight: 500 }}>
-                            <Text strong>{pm.project.code}</Text>
-                            <Text type="secondary" style={{ marginLeft: 6, fontSize: 11 }}>{pm.project.name}</Text>
-                          </td>
-                          {timeline.sortedMonths.map((m) => (
-                            <td key={m} style={{ padding: 0, textAlign: "center" }}>
-                              {pm.months.includes(m) ? (
-                                <Tooltip title={`${pm.project.code}: ${monthLabel(m)}`}>
-                                  <div style={{ width: "100%", height: 22, borderRadius: 3, backgroundColor: pm.color, opacity: 0.7 }} />
-                                </Tooltip>
-                              ) : <div style={{ width: "100%", height: 22 }} />}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </Card>
-            )}
 
             <Card title="Прогресс по проектам" style={{ marginTop: 16 }}>
               <Table rowKey={(r) => r.project.id} dataSource={projectRows} pagination={false} size="small"
                 columns={[
-                  { title: "Проект", key: "n", render: (_, r) => <span><Text strong>{r.project.code}</Text> <Text type="secondary" style={{ fontSize: 12 }}>{r.project.name}</Text></span> },
+                  { title: "Проект", key: "n", render: (_, r) => <span><Text strong>{r.project.code}</Text> <Text style={{ color: "#000", opacity: 0.55, fontSize: 12 }}>{r.project.name}</Text></span> },
                   { title: "Тип", key: "t", render: (_, r) => projectTypeLabel(r.project.type), width: 100 },
-                   { title: "Статус", key: "s", render: (_, r) => <Tag>{r.project.status === "active" ? "Активен" : r.project.status === "completed" ? "Завершён" : "—"}</Tag>, width: 90 },
+                   { title: "Статус", key: "s", render: (_, r) => blackTag(r.project.status === "active" ? "Активен" : r.project.status === "completed" ? "Завершён" : "—"), width: 90 },
                   { title: "Задачи", render: (_, r) => r.tasks.length, width: 60 },
                   { title: "Готово", dataIndex: "done", width: 60 },
                   { title: "Отменено", dataIndex: "cancelled", width: 70 },
                   { title: "Проср.", dataIndex: "overdue", width: 65 },
                   { title: "Выс. приор.", dataIndex: "highPriority", width: 70 },
-                  { title: "Прогресс", dataIndex: "avgProgress", render: (v: number) => <Progress percent={v} size="small" />, width: 120 },
+                  { title: "Прогресс", dataIndex: "avgProgress", render: (v: number) => blackProgress(v), width: 120 },
                   { title: "Команда", dataIndex: "members", width: 60 },
                   { title: "Оценка/факт, ч", key: "h", render: (_, r) => `${round(r.estimatedHours)} / ${round(r.actualHours)}`, width: 100 },
                 ]}
@@ -328,32 +293,17 @@ columns={[
             </Card>
 
             <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-              <Col xs={24} lg={12}>
+              <Col xs={24}>
                 <Card title="Загрузка по людям">
                   <Table rowKey={(r) => r.user.id} dataSource={peopleRows} pagination={{ pageSize: 8, size: "small" }} size="small"
                     columns={[
-                      { title: "Сотрудник", key: "u", render: (_, r) => <span><UserOutlined style={{ marginRight: 6 }} />{r.user.fullName ?? r.user.id}</span> },
+                      { title: "Сотрудник", key: "u", render: (_, r) => <span><UserOutlined style={{ marginRight: 6, color: "#000" }} />{r.user.firstName ?? r.user.fullName ?? r.user.id}</span> },
                       { title: "Подразделение", key: "d", render: (_, r) => r.user.department?.name ?? "—", width: 120 },
                       { title: "Задачи", dataIndex: "tasks", width: 55 },
                       { title: "Готово", dataIndex: "done", width: 55 },
                       { title: "Проср.", dataIndex: "overdue", width: 50 },
-                      { title: "Прогресс", dataIndex: "avgProgress", render: (v: number) => <Progress percent={v} size="small" />, width: 100 },
+                      { title: "Прогресс", dataIndex: "avgProgress", render: (v: number) => blackProgress(v), width: 100 },
                       { title: "Проектов", dataIndex: "projectCount", width: 60 },
-                      { title: "Часы", dataIndex: "hours", render: (v: number) => round(v), width: 60 },
-                    ]}
-                  />
-                </Card>
-              </Col>
-              <Col xs={24} lg={12}>
-                <Card title="Загрузка по подразделениям">
-                  <Table rowKey="name" dataSource={deptRows} pagination={false} size="small"
-                    columns={[
-                      { title: "Подразделение", dataIndex: "name", key: "name", render: (v: string) => <span><TeamOutlined style={{ marginRight: 6 }} />{v}</span> },
-                      { title: "Сотрудников", dataIndex: "peopleCount", width: 80 },
-                      { title: "Задачи", dataIndex: "tasks", width: 55 },
-                      { title: "Готово", dataIndex: "done", width: 55 },
-                      { title: "Проср.", dataIndex: "overdue", width: 50 },
-                      { title: "Прогресс", dataIndex: "avgProgress", render: (v: number) => <Progress percent={v} size="small" />, width: 100 },
                       { title: "Часы", dataIndex: "hours", render: (v: number) => round(v), width: 60 },
                     ]}
                   />

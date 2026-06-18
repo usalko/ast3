@@ -46,10 +46,10 @@ else:
 
 # Создать статусы для проекта (если их нет)
 statuses = [
-    ('backlog', 'Backlog', 0),
-    ('todo', 'To Do', 1),
-    ('in_progress', 'In Progress', 2),
-    ('done', 'Done', 3),
+    ('отставание', 'Отставание', 0),
+    ('к выполнению', 'К выполнению', 1),
+    ('в работе', 'В работе', 2),
+    ('готово', 'Готово', 3),
 ]
 for code, name, order in statuses:
     status, created = TaskStatus.objects.get_or_create(

@@ -110,7 +110,7 @@ class UpdateProjectInput:
 class ProjectsQuery:
     @strawberry_django.field
     def projects(self) -> list[ProjectType]:
-        return Project.objects.exclude(status=Project.CANCELLED).select_related("lead", "department").all()
+        return Project.objects.exclude(status=Project.CANCELLED).select_related("lead", "department").order_by("created_at").all()
 
     @strawberry_django.field
     def project(self, id: strawberry.ID) -> ProjectType | None:
@@ -193,8 +193,14 @@ def _update_project_sync(
     project = Project.objects.get(pk=id)
     require_project_access(info, project, min_role="manager")
     changes = {k: v for k, v in strawberry.asdict(input).items() if v is not None}
-    for field, value in changes.items():
-        setattr(project, field, value)
+    nullable_fields = {"planned_start", "planned_end", "description", "lead_id"}
+    for field in strawberry.asdict(input):
+        value = getattr(input, field)
+        if field in nullable_fields:
+            setattr(project, field, value)
+        elif value is not None:
+            changes[field] = value
+            setattr(project, field, value)
     project.save()
     AuditLog.log(
         actor=info.context.request.user,
@@ -212,15 +218,11 @@ def _delete_project_sync(
 ) -> ProjectsMutation.DeleteProjectPayload:
     from permissions.helpers import require_project_access
     from audit.models import AuditLog
-    from tasks.models import TaskStatus
 
     project = Project.objects.get(pk=id)
     require_project_access(info, project, min_role="owner")
-    cancelled_status = TaskStatus.objects.filter(project_id=project.id, code="cancelled").first()
-    if cancelled_status:
-        project.tasks.update(status_id=cancelled_status.id)
-    project.status = Project.CANCELLED
-    project.save(update_fields=["status", "updated_at"])
+    project.tasks.all().delete()
+    project.delete()
     AuditLog.log(
         actor=info.context.request.user,
         action="project.delete",

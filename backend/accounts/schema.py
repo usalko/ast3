@@ -9,6 +9,13 @@ from strawberry import auto
 
 from .models import Department, User
 
+@strawberry.type
+class _ProjectInfo:
+    id: strawberry.ID
+    code: str | None = None
+    name: str
+
+
 @strawberry_django.type(User)
 class UserType:
     id: auto
@@ -24,6 +31,14 @@ class UserType:
     @strawberry.field
     def roles(self) -> list[str]:
         return list(self.role_assignments.values_list("role__code", flat=True))
+
+    @strawberry.field
+    def projects(self) -> list[_ProjectInfo]:
+        from projects.models import Project
+        return [
+            _ProjectInfo(id=strawberry.ID(str(p.id)), code=p.code, name=p.name)
+            for p in Project.objects.filter(memberships__user=self).exclude(status=Project.CANCELLED)
+        ]
 
 
 @strawberry_django.type(Department)

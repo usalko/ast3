@@ -35,7 +35,6 @@ import { useNavigate, useLocation } from "react-router-dom";
 import {
   ThemedHeaderV2,
   ThemedLayoutContextProvider,
-  ThemedTitleV2,
   useThemedLayoutContext,
 } from "@refinedev/antd";
 
@@ -133,7 +132,7 @@ export function SiderMenu({ Title = SiderTitle }: SiderMenuProps) {
   const { warnWhen, setWarnWhen } = useWarnAboutChange();
   const { Link: LegacyLink } = useRouterContext();
   const translate = useTranslate();
-  const { menuItems, selectedKey, defaultOpenKeys } = useMenu();
+  const { menuItems, defaultOpenKeys } = useMenu();
   const breakpoint = Grid.useBreakpoint();
   const { hasDashboard } = useRefineContext();
   const isExistAuthentication = useIsExistAuthentication();
@@ -386,12 +385,13 @@ export function SiderMenu({ Title = SiderTitle }: SiderMenuProps) {
       >
       <style>{`
         .sider-menu .ant-menu-item-selected {
-          background: rgba(255, 255, 255, 0.07) !important;
+          background: ${token.colorPrimary} !important;
         }
         .sider-menu .ant-menu-item-selected .anticon,
         .sider-menu .ant-menu-item-selected > a,
         .sider-menu .ant-menu-item-selected span,
         .sider-menu .ant-menu-item-selected {
+          color: #fff !important;
           font-weight: 700;
         }
       `}</style>

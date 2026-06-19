@@ -11,6 +11,7 @@ import { ProjectShow } from "@/pages/projects/ProjectShow";
 import { ProjectForm } from "@/pages/projects/ProjectForm";
 import { TaskShow } from "@/pages/tasks/TaskShow";
 import { TaskForm } from "@/pages/tasks/TaskForm";
+import { TaskList } from "@/pages/tasks/TaskList";
 import { LoginPage } from "@/pages/auth/LoginPage";
 import { DashboardPage } from "@/pages/dashboard/DashboardPage";
 import { KanbanPage } from "@/pages/kanban/KanbanPage";
@@ -58,7 +59,9 @@ export default function App() {
               },
               {
                 name: "tasks",
+                list: "/tasks",
                 show: "/tasks/:id",
+                meta: { label: "Задачи" },
               },
               {
                 name: "kanban",
@@ -108,6 +111,7 @@ export default function App() {
                 <Route path="/projects/new" element={<ProjectForm />} />
                 <Route path="/projects/:id" element={<ProjectShow />} />
                 <Route path="/projects/:id/edit" element={<ProjectForm />} />
+                <Route path="/tasks" element={<TaskList />} />
                 <Route path="/tasks/:id" element={<TaskShow />} />
                 <Route path="/tasks/:id/edit" element={<TaskForm />} />
               </Route>

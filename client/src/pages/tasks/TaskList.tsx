@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Table, Button, Space, Typography, Tag, Popconfirm, message } from "antd";
+import { Table, Button, Space, Typography, Tag, Popconfirm, message, Tabs } from "antd";
 import { Link } from "react-router-dom";
 import { gqlQuery } from "@/api/graphql";
 import { statusLabel } from "@/utils/statusLabels";
@@ -14,19 +14,36 @@ type Task = {
   type?: string;
   progress?: number | null;
   priority?: number;
-  status: { name: string; code: string };
+  status: { name: string; code: string; order?: number };
 };
+
+const STATUS_ORDER: Record<string, number> = {
+  in_progress: 1,
+  todo: 2,
+  backlog: 3,
+  done: 4,
+  cancelled: 5,
+};
+
+const ACTIVE_CODES = new Set(["todo", "in_progress"]);
+const COMPLETED_CODES = new Set(["done", "cancelled"]);
 
 export function TaskList() {
   const [data, setData] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
+  const [tab, setTab] = useState("active");
 
   useEffect(() => {
     setLoading(true);
     gqlQuery<{ tasksAll: Task[] }>(
-      `query { tasksAll { id code title type progress priority status { name code } } }`
+      `query { tasksAll { id code title type progress priority status { name code order } } }`
     )
-      .then((res) => setData(res.tasksAll ?? []))
+      .then((res) => {
+        const sorted = (res.tasksAll ?? []).sort(
+          (a, b) => (STATUS_ORDER[a.status?.code] ?? 0) - (STATUS_ORDER[b.status?.code] ?? 0)
+        );
+        setData(sorted);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -44,31 +61,25 @@ export function TaskList() {
     }
   }
 
-  function taskTypeLabel(value?: string) {
-    if (value === "hardware") return "Производство";
-    if (value === "research") return "Исследования";
-    if (value === "bug") return "Ошибка";
-    return "ПО";
-  }
+  const filteredData = data.filter((t) =>
+    tab === "active" ? ACTIVE_CODES.has(t.status?.code) : COMPLETED_CODES.has(t.status?.code)
+  );
 
-  const columns = [
+  const baseColumns = [
     {
       title: "Код",
       dataIndex: "code",
       key: "code",
+      width: 200,
       render: (v?: string) => (v ? <Text code>{v}</Text> : "—"),
     },
     {
       title: "Название",
       dataIndex: "title",
       key: "title",
-      render: (v: string) => <Text strong>{v}</Text>,
-    },
-    {
-      title: "Тип",
-      dataIndex: "type",
-      key: "type",
-      render: (v?: string) => taskTypeLabel(v),
+      render: (v: string, record: Task) => (
+        <Link to={`/tasks/${record.id}/edit`}><Text strong>{v}</Text></Link>
+      ),
     },
     {
       title: "Статус",
@@ -94,7 +105,7 @@ export function TaskList() {
       key: "actions",
       render: (_: unknown, record: Task) => (
         <Space>
-          <Link to={`/tasks/${record.id}`}>
+          <Link to={`/tasks/${record.id}/edit`}>
             <Button>Открыть</Button>
           </Link>
           <Popconfirm
@@ -110,14 +121,22 @@ export function TaskList() {
     },
   ];
 
+  const columns = tab === "completed"
+    ? baseColumns.filter((c) => c.key !== "progress")
+    : baseColumns;
+
   return (
     <div style={{ padding: 16 }}>
+      <Tabs activeKey={tab} onChange={setTab} items={[
+        { key: "active", label: "К выполнению / В работе" },
+        { key: "completed", label: "Выполненные / Отменённые" },
+      ]} />
       <Table<Task>
         rowKey="id"
-        dataSource={data}
+        dataSource={filteredData}
         loading={loading}
         columns={columns}
-        pagination={{ pageSize: 20 }}
+        pagination={false}
       />
     </div>
   );

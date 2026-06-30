@@ -161,7 +161,6 @@ export function BacklogPage() {
                   <div style={{ flex: 1, marginRight: 16 }}>
                     <Space>
                       <Text strong>{task.title}</Text>
-                      {task.code && <Text type="secondary" code>{task.code}</Text>}
                     </Space>
                   </div>
                   <Space>

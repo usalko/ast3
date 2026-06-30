@@ -1,39 +1,40 @@
 import type { AuthProvider } from "@refinedev/core";
-import { gqlQuery } from "@/api/graphql";
+import { GraphQLClient } from "graphql-request";
 
 const TOKEN_KEY = "ast3_access";
 const REFRESH_KEY = "ast3_refresh";
 
-async function gql(query: string, variables?: Record<string, unknown>) {
-  const token = localStorage.getItem(TOKEN_KEY);
-  const res = await fetch("/graphql/", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify({ query, variables }),
-  });
-  return res.json();
-}
+const client = new GraphQLClient("/graphql/", {
+  headers: () => {
+    const token = localStorage.getItem(TOKEN_KEY);
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  },
+});
 
 export const authProvider: AuthProvider = {
   login: async ({ email, password }) => {
-    const data = await gql(
-      `mutation Login($email: String!, $password: String!) {
-        tokenObtainPair(email: $email, password: $password) {
-          access refresh
-        }
-      }`,
-      { email, password }
-    );
-    const tokens = data?.data?.tokenObtainPair;
-    if (!tokens) {
-      return { success: false, error: { name: "Login failed", message: "Invalid credentials" } };
+    try {
+      const data = await client.request<{
+        tokenObtainPair: { access: string; refresh: string };
+      }>(
+        `mutation Login($email: String!, $password: String!) {
+          tokenObtainPair(email: $email, password: $password) {
+            access refresh
+          }
+        }`,
+        { email, password }
+      );
+      const tokens = data.tokenObtainPair;
+      if (!tokens?.access) {
+        return { success: false, error: { name: "Login failed", message: "Invalid credentials" } };
+      }
+      localStorage.setItem(TOKEN_KEY, tokens.access);
+      localStorage.setItem(REFRESH_KEY, tokens.refresh);
+      window.location.replace("/");
+      return { success: true, redirectTo: "/" };
+    } catch (err) {
+      return { success: false, error: { name: "Login failed", message: String(err) } };
     }
-    localStorage.setItem(TOKEN_KEY, tokens.access);
-    localStorage.setItem(REFRESH_KEY, tokens.refresh);
-    return { success: true, redirectTo: "/" };
   },
 
   logout: async () => {
@@ -45,19 +46,20 @@ export const authProvider: AuthProvider = {
   check: async () => {
     const token = localStorage.getItem(TOKEN_KEY);
     if (!token) return { authenticated: false, redirectTo: "/login" };
-    try {
-      const data = await gqlQuery<{ me: { id: string } | null }>(`query { me { id } }`);
-      return data.me ? { authenticated: true } : { authenticated: false, redirectTo: "/login" };
-    } catch {
-      return { authenticated: false, redirectTo: "/login" };
-    }
+    return { authenticated: true };
   },
 
   getPermissions: async () => null,
 
   getIdentity: async () => {
-    const data = await gql(`query { me { id email fullName } }`);
-    return data?.data?.me ?? null;
+    try {
+      const data = await client.request<{ me: { id: string; email: string; fullName: string } | null }>(
+        `query { me { id email fullName } }`
+      );
+      return data.me ?? null;
+    } catch {
+      return null;
+    }
   },
 
   onError: async (error) => {

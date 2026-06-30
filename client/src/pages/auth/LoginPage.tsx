@@ -1,46 +1,30 @@
-import { useState } from "react";
 import { Form, Input, Button, Card, message, theme } from "antd";
-import { useNavigate } from "react-router-dom";
-import { gqlQuery } from "@/api/graphql";
-
-const TOKEN_KEY = "ast3_access";
-const REFRESH_KEY = "ast3_refresh";
+import { useLogin } from "@refinedev/core";
 
 export function LoginPage() {
   const { token } = theme.useToken();
   const [form] = Form.useForm();
-  const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
+  const { mutate: login, isLoading } = useLogin();
 
-  async function onFinish(values: Record<string, unknown>) {
-    setLoading(true);
-    try {
-      const response = await gqlQuery<{
-        tokenObtainPair?: { access: string; refresh: string };
-      }>(
-        `mutation Login($email: String!, $password: String!) {
-          tokenObtainPair(email: $email, password: $password) {
-            access refresh
+  function onFinish(values: Record<string, unknown>) {
+    login(
+      { email: values.email, password: values.password },
+      {
+        onSuccess: (result) => {
+          if (result?.success) {
+            message.success("Добро пожаловать!");
+          } else {
+            const errMsg = result?.error?.name ? `${result.error.name}: ${result.error.message}` : "Неверные учётные данные";
+            message.error(errMsg);
           }
-        }`,
-        { email: values.email, password: values.password }
-      );
-
-      const tokens = response.tokenObtainPair;
-      if (!tokens || !tokens.access) {
-        message.error("Ошибка авторизации: неверные учётные данные");
-        return;
-      }
-
-      localStorage.setItem(TOKEN_KEY, tokens.access);
-      localStorage.setItem(REFRESH_KEY, tokens.refresh);
-      message.success("Добро пожаловать!");
-      navigate("/projects");
-    } catch (err) {
-      message.error("Ошибка авторизации. Проверьте email и пароль.");
-    } finally {
-      setLoading(false);
-    }
+        },
+        onError: (err: unknown) => {
+          console.error("Login error:", err);
+          const msg = err instanceof Error ? err.message : JSON.stringify(err);
+          message.error(`Ошибка авторизации: ${msg}`);
+        },
+      },
+    );
   }
 
   return (
@@ -77,7 +61,7 @@ export function LoginPage() {
               type="primary"
               htmlType="submit"
               block
-              loading={loading}
+              loading={isLoading}
             >
               Войти
             </Button>

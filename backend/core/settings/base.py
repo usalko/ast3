@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 
 import environ
+import structlog
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -239,8 +240,8 @@ LOGGING = {
     "disable_existing_loggers": False,
     "formatters": {
         "json": {
-            "()": "structlog.stdlib.ProcessorFormatter",
-            "processor": "structlog.processors.JSONRenderer",
+            "()": structlog.stdlib.ProcessorFormatter,
+            "processor": structlog.processors.JSONRenderer(),
         },
     },
     "handlers": {
@@ -256,8 +257,6 @@ LOGGING = {
         "axes": {"handlers": ["console"], "level": "WARNING", "propagate": False},
     },
 }
-
-import structlog  # noqa: E402
 
 structlog.configure(
     processors=[

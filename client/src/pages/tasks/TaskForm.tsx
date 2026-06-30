@@ -38,15 +38,36 @@ export function TaskForm() {
   const [saving, setSaving] = useState(false);
   const existingIdsRef = useRef<string[]>([]);
 
+  const loadStatuses = async (projectId: string) => {
+    if (!projectId) {
+      setStatuses([]);
+      return;
+    }
+    try {
+      const res = await gqlQuery<{ project: { statuses: TaskStatus[] } }>(
+        `query ($id: ID!) { project(id: $id) { statuses { id name code } } }`,
+        { id: projectId }
+      );
+      setStatuses((res.project?.statuses ?? []).filter((s) => s.code !== "backlog"));
+    } catch {
+      message.error("Не удалось загрузить статусы проекта");
+    }
+  };
+
+  const projectId = Form.useWatch("projectId", form);
+
+  useEffect(() => {
+    if (projectId) {
+      loadStatuses(projectId);
+    }
+  }, [projectId]);
+
   useEffect(() => {
     if (!id) return;
     gqlQuery<{ task: Task & { assigneeIds?: string[] } }>(`query ($id: ID!) { task(id: $id) { id title description plannedStart plannedEnd estimatedHours projectId statusId assigneeIds type progress priority } }`, { id }).then(async (res) => {
       const t = res.task;
       const ids = t.assigneeIds ?? [];
       existingIdsRef.current = ids;
-      if (t?.projectId) {
-        await handleProjectChange(t.projectId);
-      }
       form.setFieldsValue({
         ...t,
         assigneeIds: ids,
@@ -120,22 +141,6 @@ export function TaskForm() {
     }
   }
 
-  const handleProjectChange = async (projectId: string) => {
-    if (!projectId) {
-      setStatuses([]);
-      return;
-    }
-    try {
-      const res = await gqlQuery<{ project: { statuses: TaskStatus[] } }>(
-        `query ($id: ID!) { project(id: $id) { statuses { id name code } } }`,
-        { id: projectId }
-      );
-      setStatuses((res.project?.statuses ?? []).filter((s) => s.code !== "backlog"));
-    } catch {
-      message.error("Не удалось загрузить статусы проекта");
-    }
-  };
-
   return (
     <div style={{ padding: 16 }}>
       <Card title={id ? "Редактировать задачу" : "Создать задачу"}>
@@ -144,7 +149,6 @@ export function TaskForm() {
             <Form.Item name="projectId" label="Проект" rules={[{ required: true, message: "Выберите проект" }]}>
               <Select
                 placeholder="Выберите проект"
-                onChange={(value) => handleProjectChange(value as string)}
                 options={projects.map((p) => ({ label: `${p.code ? `[${p.code}] ` : ""}${p.name}`, value: p.id }))}
               />
             </Form.Item>

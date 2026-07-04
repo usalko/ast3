@@ -24,24 +24,15 @@ import { AppLayout } from "@/components/SiderMenu";
 const TOKEN_KEY = "ast3_access";
 const GRAPHQL_URL = import.meta.env.VITE_GRAPHQL_URL ?? "/graphql/";
 
-export default function App() {
+function RequireAuth({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem(TOKEN_KEY);
-
   if (!token) {
-    return (
-      <BrowserRouter>
-        <ConfigProvider>
-          <AntApp>
-            <Routes>
-              <Route path="*" element={<Navigate to="/login" replace />} />
-              <Route path="/login" element={<LoginPage />} />
-            </Routes>
-          </AntApp>
-        </ConfigProvider>
-      </BrowserRouter>
-    );
+    return <Navigate to="/login" replace />;
   }
+  return <>{children}</>;
+}
 
+export default function App() {
   return (
     <BrowserRouter>
       <ConfigProvider
@@ -112,9 +103,11 @@ export default function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route
                 element={
-                  <AppLayout>
-                    <Outlet />
-                  </AppLayout>
+                  <RequireAuth>
+                    <AppLayout>
+                      <Outlet />
+                    </AppLayout>
+                  </RequireAuth>
                 }
               >
                 <Route index element={<DashboardPage />} />

@@ -1,6 +1,7 @@
 import { Refine } from "@refinedev/core";
 import "@refinedev/antd/dist/reset.css";
 import { ConfigProvider, App as AntApp } from "antd";
+import ruRU from "antd/locale/ru_RU";
 import { BrowserRouter, Outlet, Route, Routes, Navigate } from "react-router-dom";
 
 import { authProvider } from "@/providers/authProvider";

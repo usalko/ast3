@@ -1,8 +1,7 @@
-import { Refine } from "@refinedev/core";
+import { Refine, Authenticated } from "@refinedev/core";
 import "@refinedev/antd/dist/reset.css";
 import { ConfigProvider, App as AntApp } from "antd";
-import ruRU from "antd/locale/ru_RU";
-import { BrowserRouter, Outlet, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Outlet, Route, Routes, Navigate } from "react-router-dom";
 
 import { authProvider } from "@/providers/authProvider";
 import { dataProvider } from "@/providers/dataProvider";
@@ -95,9 +94,11 @@ export default function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route
                 element={
-                  <AppLayout>
-                    <Outlet />
-                  </AppLayout>
+                  <Authenticated key="layout" fallback={<Navigate to="/login" replace />}>
+                    <AppLayout>
+                      <Outlet />
+                    </AppLayout>
+                  </Authenticated>
                 }
               >
                 <Route index element={<DashboardPage />} />

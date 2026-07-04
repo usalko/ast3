@@ -29,7 +29,7 @@ admin, _ = User.objects.get_or_create(
     },
 )
 admin.set_password("admin123")
-admin.save(update_fields=["updated_at"])
+admin.save()
 
 departments = {
     "DEV": ("Разработка ПО", "Разработка веб, мобильных и сервисных продуктов."),
@@ -49,25 +49,22 @@ if admin.department_id is None:
     admin.position = "Руководитель проектов"
     admin.save(update_fields=["department", "position", "updated_at"])
 
-users = {
-    "dev1": User.objects.get_or_create(
-        email="dev1@test.local",
-        defaults={"password": "admin123", "first_name": "Иван", "last_name": "Петров", "patronymic": "", "department": department_by_code["DEV"]},
-    )[0],
-    "dev2": User.objects.get_or_create(
-        email="dev2@test.local",
-        defaults={"password": "admin123", "first_name": "Мария", "last_name": "Сидорова", "patronymic": "", "department": department_by_code["DEV"]},
-    )[0],
-    "mfg1": User.objects.get_or_create(
-        email="mfg1@test.local",
-        defaults={"password": "admin123", "first_name": "Алексей", "last_name": "Кузнецов", "patronymic": "", "department": department_by_code["MFG"]},
-    )[0],
-    "ops1": User.objects.get_or_create(
-        email="ops1@test.local",
-        defaults={"password": "admin123", "first_name": "Елена", "last_name": "Смирнова", "patronymic": "", "department": department_by_code["OPS"]},
-    )[0],
-}
-
+user_defs = [
+    ("dev1", "Иван", "Петров", department_by_code["DEV"]),
+    ("dev2", "Мария", "Сидорова", department_by_code["DEV"]),
+    ("mfg1", "Алексей", "Кузнецов", department_by_code["MFG"]),
+    ("ops1", "Елена", "Смирнова", department_by_code["OPS"]),
+]
+users: dict[str, User] = {}
+for key, first, last, dept in user_defs:
+    u, created = User.objects.get_or_create(
+        email=f"{key}@test.local",
+        defaults={"first_name": first, "last_name": last, "patronymic": "", "department": dept},
+    )
+    u.set_password("admin123")
+    u.save()
+    users[key] = u
+ 
 roles = {
     "project_manager": Role.objects.get_or_create(code="project_manager", defaults={"name": "Project Manager", "scope": Role.GLOBAL})[0],
     "security_officer": Role.objects.get_or_create(code="security_officer", defaults={"name": "Security Officer", "scope": Role.GLOBAL})[0],

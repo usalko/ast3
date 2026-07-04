@@ -1,7 +1,21 @@
-import { Refine, Authenticated } from "@refinedev/core";
+import { Refine } from "@refinedev/core";
 import "@refinedev/antd/dist/reset.css";
 import { ConfigProvider, App as AntApp } from "antd";
-import { BrowserRouter, Outlet, Route, Routes, Navigate } from "react-router-dom";
+import { BrowserRouter, Outlet, Route, Routes } from "react-router-dom";
+import { useEffect } from "react";
+
+const TOKEN_KEY = "ast3_access";
+
+function AuthGuard() {
+  useEffect(() => {
+    if (!localStorage.getItem(TOKEN_KEY)) {
+      window.location.replace("/login");
+    }
+  }, []);
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) return null;
+  return <Outlet />;
+}
 
 import { authProvider } from "@/providers/authProvider";
 import { dataProvider } from "@/providers/dataProvider";
@@ -92,15 +106,14 @@ export default function App() {
           >
             <Routes>
               <Route path="/login" element={<LoginPage />} />
-              <Route
-                element={
-                  <Authenticated key="layout" fallback={<Navigate to="/login" replace />}>
+              <Route element={<AuthGuard />}>
+                <Route
+                  element={
                     <AppLayout>
                       <Outlet />
                     </AppLayout>
-                  </Authenticated>
-                }
-              >
+                  }
+                >
                 <Route index element={<DashboardPage />} />
                 <Route path="/kanban" element={<KanbanPage />} />
                 <Route path="/backlog" element={<BacklogPage />} />

@@ -56,7 +56,7 @@ docker compose up -d --build
 
 echo "Ожидаю готовности бэкенда..."
 for i in $(seq 1 30); do
-  if curl -fsS http://localhost:8000/graphql/ >/dev/null 2>&1; then
+  if docker exec infra-backend-1 python -c "import os; os.environ.setdefault('DJANGO_SETTINGS_MODULE','core.settings.dev'); import django; django.setup(); from django.db import connection; cursor=connection.cursor(); cursor.execute('SELECT 1')" 2>/dev/null; then
     echo "Бэкенд готов (попытка $i)"
     break
   fi

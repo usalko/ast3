@@ -73,6 +73,7 @@ services:
     command: >
       sh -c "python manage.py migrate --noinput &&
              python manage.py collectstatic --noinput &&
+             python -c \"import os, sys; os.environ.setdefault('DJANGO_SETTINGS_MODULE','core.settings.dev'); import django; django.setup(); from accounts.models import User; sys.exit(0 if User.objects.exists() else 1)\" || python /app/seed_demo.py ;
              uvicorn core.asgi:application --host 0.0.0.0 --port 8000 --workers 2"
 
   # ----------------------------------------------------------------

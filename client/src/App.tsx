@@ -6,7 +6,7 @@ import { useEffect } from "react";
 
 const TOKEN_KEY = "ast3_access";
 
-function AuthGuard() {
+function AuthGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!localStorage.getItem(TOKEN_KEY)) {
       window.location.replace("/login");
@@ -14,7 +14,7 @@ function AuthGuard() {
   }, []);
   const token = localStorage.getItem(TOKEN_KEY);
   if (!token) return null;
-  return <Outlet />;
+  return <>{children}</>;
 }
 
 import { authProvider } from "@/providers/authProvider";
@@ -106,14 +106,15 @@ export default function App() {
           >
             <Routes>
               <Route path="/login" element={<LoginPage />} />
-              <Route element={<AuthGuard />}>
-                <Route
-                  element={
+              <Route
+                element={
+                  <AuthGuard>
                     <AppLayout>
                       <Outlet />
                     </AppLayout>
-                  }
-                >
+                  </AuthGuard>
+                }
+              >
                 <Route index element={<DashboardPage />} />
                 <Route path="/kanban" element={<KanbanPage />} />
                 <Route path="/backlog" element={<BacklogPage />} />

@@ -22,7 +22,7 @@
 Учётные данные:
 ```
 Email:    admin@test.local
-Пароль:   admin123
+Пароль:   admin
 ```
 
 ### 3. Перейдите на страницу проектов
@@ -51,7 +51,7 @@ Email:    admin@test.local
 
 | Ресурс | ID | Описание |
 |--------|----|-----------| 
-| Суперпользователь | - | admin@test.local / admin123 |
+| Суперпользователь | - | admin@test.local / admin |
 | Проект (TEST) | 2 | Test Project |
 | Status (Backlog) | 1 | Исходный статус |
 | Status (To Do) | 2 | Для новых задач |
@@ -84,7 +84,7 @@ docker compose -f infra/docker-compose.yml up -d
 ### Проблема: "Ошибка авторизации"
 **Решение**: Убедитесь, что вводите корректно:
 - Email: `admin@test.local` (не username)
-- Пароль: `admin123`
+- Пароль: `admin`
 
 ### Проблема: При создании задачи выбрать статус не удаётся
 **Решение**: Убедитесь, что в поле "Project ID" вводится ID проекта: `2`

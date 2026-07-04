@@ -27,7 +27,7 @@ chmod +x deploy.sh
 - Frontend: http://localhost:5173
 - PostgreSQL: `localhost:5433` / `ast3:ast3dev`
 
-Демо-учётные данные: `admin@test.local` / `admin123`
+Демо-учётные данные: `admin@test.local` / `admin`
 
 ### Идемпотентность
 

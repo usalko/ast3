@@ -22,10 +22,9 @@ admin, created = User.objects.get_or_create(
     }
 )
 if created:
-    admin.set_password('admin123')
+admin.set_password('admin')
     admin.save()
-    print('✓ Superuser admin@test.local/admin123 created')
-else:
+    print('✓ Superuser admin@test.local/admin created')
     print('✓ Superuser already exists')
 
 # Создать проект для тестирования
@@ -63,6 +62,6 @@ for code, name, order in statuses:
 todo_status = TaskStatus.objects.get(project=project, code="todo")
 print(f'\nReady to test! Use:')
 print(f'  Email: admin@test.local')
-print(f'  Password: admin123')
+print(f'  Password: admin')
 print(f'  Project ID: {project.id}')
 print(f'  Status ID (To Do): {todo_status.id}')

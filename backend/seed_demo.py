@@ -28,7 +28,7 @@ admin, _ = User.objects.get_or_create(
         "is_active": True,
     },
 )
-admin.set_password("admin123")
+admin.set_password("admin")
 admin.save()
 
 departments = {
@@ -61,7 +61,7 @@ for key, first, last, dept in user_defs:
         email=f"{key}@test.local",
         defaults={"first_name": first, "last_name": last, "patronymic": "", "department": dept},
     )
-    u.set_password("admin123")
+    u.set_password("admin")
     u.save()
     users[key] = u
  

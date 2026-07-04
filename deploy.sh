@@ -54,20 +54,18 @@ docker compose down --remove-orphans || true
 echo "Собираю и поднимаю стек..."
 docker compose up -d --build
 
-echo "Жду 20 секунд на запуск сервисов..."
-sleep 20
+echo "Ожидаю готовности бэкенда..."
+for i in $(seq 1 30); do
+  if curl -fsS http://localhost:8000/graphql/ >/dev/null 2>&1; then
+    echo "Бэкенд готов (попытка $i)"
+    break
+  fi
+  echo "  жду... ($i)"
+  sleep 5
+done
 
 echo "Заполняю демо-данными..."
-docker exec -i infra-backend-1 python manage.py shell <<'PYEOF'
-import os
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "core.settings.dev")
-import django
-django.setup()
-from importlib.util import spec_from_file_location, module_from_spec
-script = spec_from_file_location("seed_demo", "/app/backend/seed_demo.py")
-mod = module_from_spec(script)
-script.loader.exec_module(mod)
-PYEOF
+docker exec -e DJANGO_SETTINGS_MODULE=core.settings.dev infra-backend-1 python /app/seed_demo.py
 SEED_EXIT=$?
 if [[ $SEED_EXIT -ne 0 ]]; then
   echo "FAIL seed_demo.py (exit=$SEED_EXIT)"

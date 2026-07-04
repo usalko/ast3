@@ -1,21 +1,7 @@
 import { Refine } from "@refinedev/core";
 import "@refinedev/antd/dist/reset.css";
 import { ConfigProvider, App as AntApp } from "antd";
-import { BrowserRouter, Outlet, Route, Routes } from "react-router-dom";
-import { useEffect } from "react";
-
-const TOKEN_KEY = "ast3_access";
-
-function AuthGuard({ children }: { children: React.ReactNode }) {
-  useEffect(() => {
-    if (!localStorage.getItem(TOKEN_KEY)) {
-      window.location.replace("/login");
-    }
-  }, []);
-  const token = localStorage.getItem(TOKEN_KEY);
-  if (!token) return null;
-  return <>{children}</>;
-}
+import { BrowserRouter, Outlet, Route, Routes, Navigate } from "react-router-dom";
 
 import { authProvider } from "@/providers/authProvider";
 import { dataProvider } from "@/providers/dataProvider";
@@ -35,9 +21,27 @@ import { TimeTrackingPage } from "@/pages/time-tracking/TimeTrackingPage";
 import { TeamPage } from "@/pages/team/TeamPage";
 import { AppLayout } from "@/components/SiderMenu";
 
+const TOKEN_KEY = "ast3_access";
 const GRAPHQL_URL = import.meta.env.VITE_GRAPHQL_URL ?? "/graphql/";
 
 export default function App() {
+  const token = localStorage.getItem(TOKEN_KEY);
+
+  if (!token) {
+    return (
+      <BrowserRouter>
+        <ConfigProvider>
+          <AntApp>
+            <Routes>
+              <Route path="*" element={<Navigate to="/login" replace />} />
+              <Route path="/login" element={<LoginPage />} />
+            </Routes>
+          </AntApp>
+        </ConfigProvider>
+      </BrowserRouter>
+    );
+  }
+
   return (
     <BrowserRouter>
       <ConfigProvider
@@ -108,11 +112,9 @@ export default function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route
                 element={
-                  <AuthGuard>
-                    <AppLayout>
-                      <Outlet />
-                    </AppLayout>
-                  </AuthGuard>
+                  <AppLayout>
+                    <Outlet />
+                  </AppLayout>
                 }
               >
                 <Route index element={<DashboardPage />} />

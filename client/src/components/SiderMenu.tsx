@@ -12,6 +12,7 @@ import {
 import {
   DashboardOutlined,
   LogoutOutlined,
+  LinkOutlined,
   UnorderedListOutlined,
   BarsOutlined,
   LeftOutlined,
@@ -215,7 +216,20 @@ export function SiderMenu({ Title = SiderTitle }: SiderMenuProps) {
         }
       : undefined;
 
-    return [dashboardItem, ...menuTreeItems, dividerItem, teamItem, logoutItem].filter(
+    const bapackDivider = isExistAuthentication
+      ? { type: "divider" as const }
+      : undefined;
+
+    const bapackItem = isExistAuthentication
+      ? {
+          key: "bapack",
+          icon: <LinkOutlined />,
+          label: "Калькулятор загрузки",
+          onClick: () => window.open("/bapack.html", "_blank"),
+        }
+      : undefined;
+
+    return [dashboardItem, ...menuTreeItems, dividerItem, teamItem, logoutItem, bapackDivider, bapackItem].filter(
       Boolean,
     ) as MenuItem[];
   }, [

@@ -25,7 +25,7 @@ export function TeamPage() {
   const loadUsers = async () => {
     setLoading(true);
     try {
-      const res = await gqlQuery<{ users: User[] }>("query { users { id email firstName lastName roles projects { id code name } } }");
+      const res = await gqlQuery<{ users: User[] }>("query { users { id email firstName roles projects { id code name } } }");
       const list = res.users ?? [];
       const filtered = list.filter((u) => !(u.roles || []).includes("admin") && u.email !== "admin@test.local");
       const sorted = [...filtered].sort((a, b) => (a.firstName || a.email).localeCompare(b.firstName || b.email));
@@ -82,7 +82,7 @@ export function TeamPage() {
   };
 
   const handleEditClick = (user: User) => {
-    editForm.setFieldsValue({ firstName: user.firstName || "", lastName: user.lastName || "" });
+    editForm.setFieldsValue({ firstName: user.firstName || "" });
     setEditTarget(user);
   };
 
@@ -91,8 +91,8 @@ export function TeamPage() {
       if (!editTarget) return;
       const values = await editForm.validateFields();
       await gqlQuery(
-        `mutation($userId:ID!,$firstName:String!,$lastName:String!){updateEmployee(userId:$userId,firstName:$firstName,lastName:$lastName){id firstName lastName}}`,
-        { userId: editTarget.id, firstName: values.firstName, lastName: values.lastName },
+        `mutation($userId:ID!,$firstName:String!){updateEmployee(userId:$userId,firstName:$firstName,lastName:""){id firstName}}`,
+        { userId: editTarget.id, firstName: values.firstName },
       );
       message.success("Имя изменено");
       setEditTarget(null);
@@ -190,9 +190,6 @@ export function TeamPage() {
         <Form form={editForm} layout="vertical">
           <Form.Item name="firstName" label="Имя" rules={[{ required: true }]}>
             <Input placeholder="Введите имя" />
-          </Form.Item>
-          <Form.Item name="lastName" label="Фамилия" rules={[{ required: true }]}>
-            <Input placeholder="Введите фамилию" />
           </Form.Item>
         </Form>
       </Modal>

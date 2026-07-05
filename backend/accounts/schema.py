@@ -216,7 +216,7 @@ class AccountsMutation:
         return user  # type: ignore[return-value]
 
     @strawberry.mutation
-    def update_employee(self, info: strawberry.types.Info, user_id: strawberry.ID, first_name: str, last_name: str) -> UserType:
+    def update_employee(self, info: strawberry.types.Info, user_id: strawberry.ID, first_name: str, last_name: str | None = None) -> UserType:
         from audit.models import AuditLog
 
         caller = info.context.request.user
@@ -224,14 +224,15 @@ class AccountsMutation:
             raise Exception("Forbidden")
         user = User.objects.get(pk=user_id)
         user.first_name = first_name
-        user.last_name = last_name
-        user.save(update_fields=["first_name", "last_name", "updated_at"])
+        if last_name is not None:
+            user.last_name = last_name
+        user.save(update_fields=["first_name", "updated_at"])
         AuditLog.log(
             actor=caller,
             action="auth.update_employee",
             resource_type="user",
             resource_id=str(user_id),
-            payload={"first_name": first_name, "last_name": last_name},
+            payload={"first_name": first_name},
             request=info.context.request,
         )
         return user  # type: ignore[return-value]

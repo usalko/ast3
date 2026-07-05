@@ -59,12 +59,11 @@ class User(AbstractBaseUser, PermissionsMixin):
         verbose_name_plural = "Users"
 
     def __str__(self) -> str:
-        return f"{self.last_name} {self.first_name} <{self.email}>"
+        return f"{self.first_name} <{self.email}>"
 
     @property
     def full_name(self) -> str:
-        parts = [self.last_name, self.first_name, self.patronymic]
-        return " ".join(p for p in parts if p)
+        return self.first_name
 
 
 class Role(models.Model):

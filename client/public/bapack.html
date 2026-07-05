@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Калькулятор загрузки</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-size: 1.12em; font-family: 'Segoe UI', Arial, sans-serif; background: #1a1a2e; color: #eee; padding: 20px; min-height: 100vh; }
+  h1 { text-align: center; margin-bottom: 24px; color: #b0a090; font-size: 2.1em; }
+
+  .info-bar { background: #16213e; border-radius: 8px; padding: 12px 16px; margin: 20px auto 0; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; max-width: 1150px; font-size: 1.05em; }
+  .info-bar .total { font-weight: bold; color: #00d2ff; }
+  .reset-btn { background: #1a1a2e; border: 1px solid #0f3460; color: #888; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 0.95em; transition: background 0.15s; }
+  .reset-btn:hover { background: #0f3460; color: #aaa; }
+  .reset-btn:last-of-type { margin-left: auto; }
+
+  table { width: 100%; max-width: 1150px; margin: 0 auto; border-collapse: collapse; background: #16213e; border-radius: 8px; overflow: hidden; }
+  th { background: #0f3460; padding: 10px 14px; text-align: left; font-weight: 600; font-size: 0.95em; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
+  td { padding: 5px 14px; border-bottom: 1px solid #0f3460; font-size: 1.0em; vertical-align: middle; }
+  th:nth-child(2), th:nth-child(3), th:nth-child(4),
+  td:nth-child(2), td:nth-child(3), td:nth-child(4), td:nth-child(5) { text-align: center; }
+  .veh-table th:nth-child(2), .veh-table th:nth-child(3), .veh-table th:nth-child(4), .veh-table th:nth-child(5),
+  .veh-table td:nth-child(2), .veh-table td:nth-child(3), .veh-table td:nth-child(4), .veh-table td:nth-child(5) { text-align: center; }
+  tr:not(.add-row):last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(233, 69, 96, 0.12); }
+  tr.active td { background: rgba(233, 69, 96, 0.12); }
+
+  td input[type="number"] { background: #1a1a2e; border: 1px solid #0f3460; color: #eee; padding: 4px 8px; border-radius: 5px; width: 66px; text-align: center; font-size: 1.05em; -moz-appearance: textfield; }
+  td input[type="number"]::-webkit-outer-spin-button,
+  td input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  td input[type="number"]:focus { outline: none; border-color: #e94560; }
+
+  .qty-cell { display: flex; align-items: center; gap: 3px; white-space: nowrap; }
+  .qty-btn { background: #0f3460; border: 1px solid #0f3460; color: #eee; width: 24px; height: 24px; border-radius: 5px; cursor: pointer; font-size: 1em; font-weight: bold; line-height: 1; padding: 0; display: inline-flex; align-items: center; justify-content: center; transition: background 0.15s; user-select: none; }
+  .qty-btn:hover { background: #e94560; border-color: #e94560; }
+
+  td input.custom-dim { width: 82px; margin-right: 2px; font-size: 0.85em; }
+
+  .veh-table { margin-top: 30px; }
+  .veh-table td { padding: 8px 14px; }
+  .group-hdr { background: #16213e; padding: 4px 8px; text-align: center; font-weight: 600; font-size: 0.72em; color: #9ab0c0; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
+
+  .veh-table .status-col { width: 52px; text-align: center; }
+
+  .status { display: inline-block; width: 16px; height: 16px; border-radius: 50%; transition: background 0.2s; flex-shrink: 0; }
+  .status.ok { background: #2ecc71; box-shadow: 0 0 8px rgba(46, 204, 113, 0.5); }
+  .status.fail { background: #e74c3c; box-shadow: 0 0 8px rgba(231, 76, 60, 0.5); }
+  .status.none { background: #555; }
+
+  .add-row td { padding: 5px 14px; border-top: 1px solid #0f3460; }
+  .add-row input { background: #1a1a2e; border: 1px solid #0f3460; color: #eee; padding: 4px 8px; border-radius: 5px; font-size: 1.05em; }
+  .add-row input[type="number"] { width: 66px; text-align: center; -moz-appearance: textfield; }
+  .add-row input[type="number"]::-webkit-outer-spin-button,
+  .add-row input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .add-row input:focus { outline: none; border-color: #e94560; }
+  .add-row #customName { width: auto; text-align: left; min-width: 100px; }
+  .veh-table #vehCustomName { width: auto; text-align: left; min-width: 180px; }
+  .add-btn { background: #1a1a2e; border: 1px solid #0f3460; color: #888; padding: 4px 16px; border-radius: 6px; cursor: pointer; font-size: 0.95em; transition: background 0.15s; white-space: nowrap; }
+  .add-btn:hover { background: #0f3460; color: #aaa; }
+  .inline-del-btn { background: none; border: 1px solid #0f3460; color: #888; width: 20px; height: 20px; border-radius: 4px; cursor: pointer; font-size: 1em; line-height: 1; padding: 0; display: inline-flex; align-items: center; justify-content: center; transition: background 0.15s; flex-shrink: 0; }
+  .inline-del-btn:hover { background: #0f3460; color: #aaa; }
+</style>
+</head>
+<body>
+
+<h1>Расчёт загрузки коробок в машину</h1>
+
+<table>
+  <thead>
+    <tr><th>Наименование</th><th>Ширина (мм)</th><th>Длина (мм)</th><th>Высота (мм)</th><th style="text-align:center;padding-right:62px;">Кол-во</th></tr>
+  </thead>
+  <tbody id="boxesBody"></tbody>
+  <tfoot>
+    <tr class="add-row">
+      <td><input type="text" id="customName" placeholder="Название"></td>
+      <td><input type="number" id="customW" placeholder="мм" min="0"></td>
+      <td><input type="number" id="customL" placeholder="мм" min="0"></td>
+      <td><input type="number" id="customH" placeholder="мм" min="0"></td>
+      <td style="text-align:center;"><button class="add-btn" id="addCustomBtn" style="margin-left:-32px;">+ Добавить</button></td>
+    </tr>
+  </tfoot>
+</table>
+
+<div class="info-bar">
+  <span>Суммарный объём коробок: <span class="total" id="totalBoxVol">0.00 м³</span></span>
+  <span>Общее количество: <span class="total" id="totalBoxQty">0</span></span>
+  <button class="reset-btn" id="resetBtn">Сброс кол-ва коробок</button>
+</div>
+
+<table class="veh-table">
+  <thead>
+    <tr>
+      <th>Машина</th><th>Ширина (мм)</th><th>Длина (мм)</th><th>Высота (мм)</th><th>Объём (м³)</th>
+      <th class="group-hdr status-col">Обычная</th><th class="group-hdr status-col">Идеальная</th>
+    </tr>
+  </thead>
+  <tbody id="vehBody"></tbody>
+  <tfoot>
+    <tr class="add-row">
+      <td><input type="text" id="vehCustomName" placeholder="Название"></td>
+      <td><input type="number" id="vehCustomW" placeholder="мм" min="0" step="1"></td>
+      <td><input type="number" id="vehCustomL" placeholder="мм" min="0" step="1"></td>
+      <td><input type="number" id="vehCustomH" placeholder="мм" min="0" step="1"></td>
+      <td>—</td>
+      <td colspan="2" style="text-align:center;"><button class="add-btn" id="addVehBtn">+ Добавить</button></td>
+    </tr>
+  </tfoot>
+</table>
+
+<div style="text-align: right; font-size: 0.8em; color: #888; margin: 8px auto 0; max-width: 1150px;">
+  Обычная — фиксированная ориентация | Идеальная — с учётом поворотов
+</div>
+
+<script>
+(function () {
+
+  var boxes = [
+    { name: "КВН 15",                         l: 595, w: 400, h: 420 },
+    { name: "КВН 15 (катушка)",               l: 470, w: 375, h: 380 },
+    { name: "КВН 23",                         l: 530, w: 470, h: 410 },
+    { name: "КВН 23 (катушка)",               l: 510, w: 450, h: 380 },
+    { name: "ПВХ — 5 «ПАУК»",                 l: 520, w: 510, h: 520 },
+    { name: "ПВХ — 5 «ПАУК» (катушка)",       l: 500, w: 430, h: 460 },
+    { name: "«ВОГАН» др./кат",                l: 970, w: 650, h: 630 },
+    { name: "ПВХ-2",                          l: 930, w: 570, h: 480 },
+    { name: "«1-570»",                        l: 870, w: 520, h: 320 },
+    { name: "РТД-15К",                        l: 980, w: 660, h: 590 },
+    { name: "ЖМИЛЬ — 17 (Ц,Т)",              l: 980, w: 670, h: 410 },
+    { name: "БУМЕРАНГ",                       l: 580, w: 580, h: 600 },
+    { name: "ПВХ 1 ВТ тушка 9 день",          l: 530, w: 540, h: 440 },
+    { name: "ПВХ 1 ВТ тушка 9 ночь",          l: 680, w: 550, h: 490 },
+    { name: "ПВХ 1 Вишня день (скорост)",     l: 570, w: 570, h: 330 },
+    { name: "ПВХ 1 Тула Базовый к-т (д/н)",  l: 650, w: 680, h: 640 },
+    { name: "Скворец",                        l: 980, w: 690, h: 660 },
+    { name: "VTX",                            l: 410, w: 690, h: 480 },
+    { name: "НСУ Скворец",                    l: 160, w: 510, h: 270 },
+    { name: "НСУ УПЫРЬ",                       l: 790, w: 590, h: 590 },
+    { name: "Приемник MC2r4-1",              l: 530, w: 810, h: 850 },
+    { name: "Спарки ХТ-60",                  l: 480, w: 280, h: 210 },
+  ];
+
+  var vehicles = [
+    { name: "Аврора",        l: 1800,  w: 2500,  h: 1450  },
+    { name: "УАЗ Профи",     l: 1800,  w: 2350,  h: 1500  },
+    { name: "КаМАЗ 65117",   l: 2450,  w: 7750,  h: 2400  },
+    // Камаз-Черепаха: низ прямоугольник + верх трапеция (средняя ширина)
+    { name: "Камаз-Черепаха", zones: [
+      { l: 2460, w: 5400, h: 1100 },
+      { l: 2040, w: 5400, h: 560  }
+    ]},
+  ];
+
+  var customBoxes = [];
+  var customVehicles = [];
+  var customBoxQtys = {};
+  var customVehQtys = {};
+
+  // ─── Утилиты ────────────────────────────────────────────────────────────────
+
+  function mm3ToM3(v) { return v / 1e9; }
+
+  // Все 6 ориентаций коробки (или 1 без поворота)
+  function orientations(l, w, h, allowRot) {
+    if (!allowRot) return [[l, w, h]];
+    return [
+      [l, w, h], [l, h, w],
+      [w, l, h], [w, h, l],
+      [h, l, w], [h, w, l]
+    ];
+  }
+
+  // ─── Ключевая функция ────────────────────────────────────────────────────────
+  //
+  // Для ОДНОГО типа коробки: сколько штук влезает в кузов при лучшей ориентации.
+  // Считаем честно: floor(BinL/dl) * floor(BinW/dw) * floor(BinH/dh)
+  //
+  function maxBoxesInBin(bl, bw, bh, BinL, BinW, BinH, allowRot) {
+    var best = 0;
+    var oris = orientations(bl, bw, bh, allowRot);
+    for (var i = 0; i < oris.length; i++) {
+      var dl = oris[i][0], dw = oris[i][1], dh = oris[i][2];
+      if (dl <= BinL && dw <= BinW && dh <= BinH) {
+        var n = Math.floor(BinL / dl) * Math.floor(BinW / dw) * Math.floor(BinH / dh);
+        if (n > best) best = n;
+      }
+    }
+    return best;
+  }
+
+  // ─── Последовательная упаковка ────────────────────────────────────────────────
+  //
+  // Размещает группы коробок ОДНУ ЗА ДРУГОЙ.
+  // Для каждой группы проходим по зонам: сначала зона 1, потом зона 2...
+  // В каждой зоне размещаем сколько влезет, вычитаем занятую высоту,
+  // переходим к следующей зоне если ещё остались коробки этой группы.
+  //
+  function canFitAll(items, zones, isStrict) {
+    // Копируем зоны, будем менять их высоту по мере заполнения
+    var zs = [];
+    for (var z = 0; z < zones.length; z++) {
+      var zl = zones[z].l, zw = zones[z].w, zh = zones[z].h;
+      if (isStrict) { zl *= 0.98; zw *= 0.98; zh *= 0.98; }
+      zs.push({ l: zl, w: zw, h: zh });
+    }
+
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i];
+      var needed = it.qty;
+      var placed = 0;
+
+      // Пытаемся разместить эту группу во всех доступных зонах
+      for (var z = 0; z < zs.length && placed < needed; z++) {
+        var zone = zs[z];
+        if (zone.h <= 0) continue;
+
+        // Находим лучшую ориентацию
+        var bestN = 0;
+        var bestDL = it.l, bestDW = it.w, bestDH = it.h;
+        var oris = orientations(it.l, it.w, it.h, !isStrict);
+        for (var d = 0; d < oris.length; d++) {
+          var dl = oris[d][0], dw = oris[d][1], dh = oris[d][2];
+          if (dl <= zone.l && dw <= zone.w && dh <= zone.h) {
+            var n = Math.floor(zone.l / dl) * Math.floor(zone.w / dw) * Math.floor(zone.h / dh);
+            if (n > bestN) { bestN = n; bestDL = dl; bestDW = dw; bestDH = dh; }
+          }
+        }
+
+        if (bestN === 0) continue;
+
+        var take = Math.min(bestN, needed - placed);
+        placed += take;
+
+        if (i < items.length - 1) {
+          // Это НЕ последняя группа — вычитаем занятую высоту из зоны
+          var perLayer = Math.floor(zone.l / bestDL) * Math.floor(zone.w / bestDW);
+          var layersNeeded = Math.ceil(take / perLayer);
+          zone.h -= layersNeeded * bestDH;
+          if (zone.h < 0) zone.h = 0;
+        }
+      }
+
+      if (placed < needed) return false;
+    }
+    return true;
+  }
+
+  // ─── Данные из формы ────────────────────────────────────────────────────────
+
+  function getData() {
+    var items = [];
+    var rows = document.querySelectorAll('#boxesBody tr.box-row');
+    rows.forEach(function (tr) {
+      var qty = parseInt(tr.querySelector('.qty').value) || 0;
+      if (qty <= 0) return;
+      var isCustom = tr.classList.contains('custom-box');
+      var l = parseFloat(tr.dataset.l);
+      var w = parseFloat(tr.dataset.w);
+      var h = parseFloat(tr.dataset.h);
+      if (l > 0 && w > 0 && h > 0) items.push({ l: l, w: w, h: h, qty: qty });
+    });
+    return items;
+  }
+
+  // ─── Обновление интерфейса ──────────────────────────────────────────────────
+
+  function updateDisplay() {
+    var items = getData();
+    var totalVol = 0, totalQty = 0;
+    for (var i = 0; i < items.length; i++) {
+      totalVol += items[i].l * items[i].w * items[i].h * items[i].qty;
+      totalQty += items[i].qty;
+    }
+    document.getElementById('totalBoxVol').textContent =
+      totalVol > 0 ? mm3ToM3(totalVol).toFixed(4) + ' м³' : '0.00 м³';
+    document.getElementById('totalBoxQty').textContent = totalQty;
+
+    var vehRows = document.querySelectorAll('#vehBody tr.veh-row');
+    for (var ri = 0; ri < vehRows.length; ri++) {
+      var tr = vehRows[ri];
+      var veh = null;
+
+      if (tr.dataset.custom === 'true') {
+        var cl = parseFloat(tr.dataset.l);
+        var cw = parseFloat(tr.dataset.w);
+        var ch = parseFloat(tr.dataset.h);
+        if (cl > 0 && cw > 0 && ch > 0) veh = { l: cl, w: cw, h: ch };
+      } else {
+        var idx = parseInt(tr.dataset.i);
+        if (!isNaN(idx)) veh = vehicles[idx];
+      }
+
+      var tds = tr.children;
+      // колонки: 0=имя 1=L 2=W 3=H 4=объём | 5=статус | 6=статус
+      var nd = tds[5].querySelector('.status');
+      var rd = tds[6].querySelector('.status');
+
+      if (!veh || totalQty === 0) {
+        nd.className = 'status none'; rd.className = 'status none';
+        continue;
+      }
+
+      // Обычная: фикс. ориентация + −2%, Идеальная: повороты + полный кузов
+      // Определяем зоны кузова: либо одна зона {l,w,h}, либо несколько
+      var zones;
+      if (veh.zones) {
+        zones = veh.zones.slice(); // копируем
+      } else {
+        zones = [{ l: veh.l, w: veh.w, h: veh.h }];
+      }
+
+      var noRot   = canFitAll(items, zones, true);
+      var withRot = canFitAll(items, zones, false);
+
+      nd.className = 'status ' + (noRot   ? 'ok' : 'fail');
+      rd.className = 'status ' + (withRot ? 'ok' : 'fail');
+    }
+
+    // Подсветка строк с выбранными коробками
+    document.querySelectorAll('#boxesBody tr.box-row').forEach(function (btr) {
+      var qv = parseInt(btr.querySelector('.qty').value) || 0;
+      btr.classList.toggle('active', qv > 0);
+    });
+  }
+
+  // ─── Построение таблиц ──────────────────────────────────────────────────────
+
+  function build() {
+    var h = '';
+    for (var i = 0; i < boxes.length; i++) {
+      var b = boxes[i];
+      h += '<tr class="box-row" data-l="' + b.l + '" data-w="' + b.w + '" data-h="' + b.h + '">';
+      h += '<td>' + b.name + '</td><td>' + b.l + '</td><td>' + b.w + '</td><td>' + b.h + '</td>';
+      h += '<td><div class="qty-cell">';
+      h += '<button class="qty-btn minus">−</button>';
+      h += '<input type="number" class="qty" min="0" value="0">';
+      h += '<button class="qty-btn plus">+</button>';
+      h += '</div></td></tr>';
+    }
+    document.getElementById('boxesBody').innerHTML = h;
+
+    h = '';
+    for (var j = 0; j < vehicles.length; j++) {
+      var v = vehicles[j];
+      var vl, vw, vh, volM3;
+      if (v.zones) {
+        vl = v.zones[0].l; vw = v.zones[0].w; vh = 0;
+        var totalVol = 0;
+        for (var z = 0; z < v.zones.length; z++) {
+          var zz = v.zones[z];
+          vl = Math.max(vl, zz.l);
+          vw = Math.max(vw, zz.w);
+          vh += zz.h;
+          totalVol += zz.l * zz.w * zz.h;
+        }
+        volM3 = mm3ToM3(totalVol).toFixed(2);
+      } else {
+        vl = v.w; vw = v.l; vh = v.h;
+        volM3 = mm3ToM3(v.l * v.w * v.h).toFixed(2);
+      }
+      h += '<tr class="veh-row" data-i="' + j + '">';
+      h += '<td>' + v.name + '</td><td>' + vl + '</td><td>' + vw + '</td><td>' + vh + '</td>';
+      h += '<td>' + volM3 + '</td>';
+      h += '<td class="status-col"><div class="status none"></div></td>';
+      h += '<td class="status-col"><div class="status none"></div></td>';
+      h += '</tr>';
+    }
+    document.getElementById('vehBody').innerHTML = h;
+
+    // Кнопки ±
+    document.querySelectorAll('.qty-btn.minus').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var inp = this.parentElement.querySelector('.qty');
+        inp.value = Math.max(0, (parseInt(inp.value) || 0) - 1);
+        updateDisplay();
+      });
+    });
+    document.querySelectorAll('.qty-btn.plus').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var inp = this.parentElement.querySelector('.qty');
+        inp.value = (parseInt(inp.value) || 0) + 1;
+        updateDisplay();
+      });
+    });
+
+    // Изменение вручную
+    document.querySelectorAll('#boxesBody .qty, #vehBody .qty')
+      .forEach(function (inp) {
+        inp.addEventListener('input', updateDisplay);
+      });
+
+    // Добавить кастомную коробку
+    document.getElementById('addCustomBtn').addEventListener('click', function () {
+      var name = document.getElementById('customName').value.trim();
+      var w = parseFloat(document.getElementById('customW').value);
+      var l = parseFloat(document.getElementById('customL').value);
+      var h = parseFloat(document.getElementById('customH').value);
+      if (!name || !(l > 0) || !(w > 0) || !(h > 0)) return;
+      customBoxes.push({ name: name, l: l, w: w, h: h });
+      document.getElementById('customName').value = '';
+      document.getElementById('customL').value = '';
+      document.getElementById('customW').value = '';
+      document.getElementById('customH').value = '';
+      renderCustomBoxes();
+      saveToStorage();
+      updateDisplay();
+    });
+
+    // Добавить кастомную машину
+    document.getElementById('addVehBtn').addEventListener('click', function () {
+      var name = document.getElementById('vehCustomName').value.trim();
+      var w = parseFloat(document.getElementById('vehCustomW').value);
+      var l = parseFloat(document.getElementById('vehCustomL').value);
+      var h = parseFloat(document.getElementById('vehCustomH').value);
+      if (!name || !(l > 0) || !(w > 0) || !(h > 0)) return;
+      customVehicles.push({ name: name, l: l, w: w, h: h });
+      document.getElementById('vehCustomName').value = '';
+      document.getElementById('vehCustomL').value = '';
+      document.getElementById('vehCustomW').value = '';
+      document.getElementById('vehCustomH').value = '';
+      renderCustomVehicles();
+      saveToStorage();
+      updateDisplay();
+    });
+
+    // Сброс
+    document.getElementById('resetBtn').addEventListener('click', function () {
+      document.querySelectorAll('#boxesBody .qty').forEach(function (inp) { inp.value = 0; });
+      document.querySelectorAll('#vehBody .qty').forEach(function (inp) { inp.value = 0; });
+      updateDisplay();
+    });
+
+    // Восстановить сохранённые кастомные коробки
+    loadFromStorage();
+  }
+
+  function renderCustomBoxes() {
+    document.querySelectorAll('#boxesBody tr.custom-box').forEach(function (tr) { tr.remove(); });
+
+    for (var i = 0; i < customBoxes.length; i++) {
+      var cb = customBoxes[i];
+      var savedQty = customBoxQtys[i] || 0;
+      var tr = document.createElement('tr');
+      tr.className = 'box-row custom-box';
+      tr.setAttribute('data-l', cb.l);
+      tr.setAttribute('data-w', cb.w);
+      tr.setAttribute('data-h', cb.h);
+      tr.innerHTML =
+        '<td><div style="display:flex;align-items:center;gap:4px;">' + cb.name + '<button class="inline-del-btn">&times;</button></div></td><td>' + cb.l + '</td><td>' + cb.w + '</td><td>' + cb.h + '</td>' +
+        '<td><div class="qty-cell">' +
+        '<button class="qty-btn minus">−</button>' +
+        '<input type="number" class="qty" min="0" value="' + savedQty + '">' +
+        '<button class="qty-btn plus">+</button>' +
+        '</div></td>';
+
+      (function (idx, row) {
+        row.querySelector('.qty-btn.minus').addEventListener('click', function () {
+          var inp = row.querySelector('.qty');
+          inp.value = Math.max(0, (parseInt(inp.value) || 0) - 1);
+          customBoxQtys[idx] = parseInt(inp.value) || 0;
+          updateDisplay();
+        });
+        row.querySelector('.qty-btn.plus').addEventListener('click', function () {
+          var inp = row.querySelector('.qty');
+          inp.value = (parseInt(inp.value) || 0) + 1;
+          customBoxQtys[idx] = parseInt(inp.value) || 0;
+          updateDisplay();
+        });
+        row.querySelector('.inline-del-btn').addEventListener('click', function () {
+          customBoxes.splice(idx, 1);
+          delete customBoxQtys[idx];
+          var newQtys = {};
+          for (var k = 0; k < customBoxes.length; k++) {
+            if (k < idx) newQtys[k] = customBoxQtys[k] || 0;
+            else if (k >= idx) newQtys[k] = customBoxQtys[k + 1] || 0;
+          }
+          customBoxQtys = newQtys;
+          renderCustomBoxes();
+          saveToStorage();
+          updateDisplay();
+        });
+        row.querySelector('.qty').addEventListener('input', function () {
+          customBoxQtys[idx] = parseInt(this.value) || 0;
+          updateDisplay();
+        });
+      })(i, tr);
+
+      document.getElementById('boxesBody').appendChild(tr);
+    }
+  }
+
+  function renderCustomVehicles() {
+    document.querySelectorAll('#vehBody tr.custom-veh').forEach(function (tr) { tr.remove(); });
+
+    for (var i = 0; i < customVehicles.length; i++) {
+      var cv = customVehicles[i];
+      var tr = document.createElement('tr');
+      tr.className = 'veh-row custom-veh';
+      tr.setAttribute('data-custom', 'true');
+      tr.setAttribute('data-l', cv.l);
+      tr.setAttribute('data-w', cv.w);
+      tr.setAttribute('data-h', cv.h);
+      var vol = mm3ToM3(cv.l * cv.w * cv.h).toFixed(2);
+      tr.innerHTML =
+        '<td><div style="display:flex;align-items:center;gap:4px;">' + cv.name + '<button class="inline-del-btn">&times;</button></div></td><td>' + cv.l + '</td><td>' + cv.w + '</td><td>' + cv.h + '</td>' +
+        '<td>' + vol + '</td>' +
+        '<td class="status-col"><div class="status none"></div></td>' +
+        '<td class="status-col"><div class="status none"></div></td>';
+
+      (function (idx, row) {
+        row.querySelector('.inline-del-btn').addEventListener('click', function () {
+          customVehicles.splice(idx, 1);
+          delete customVehQtys[idx];
+          var newQtys = {};
+          for (var k = 0; k < customVehicles.length; k++) {
+            if (k < idx) newQtys[k] = customVehQtys[k] || 0;
+            else if (k >= idx) newQtys[k] = customVehQtys[k + 1] || 0;
+          }
+          customVehQtys = newQtys;
+          renderCustomVehicles();
+          saveToStorage();
+          updateDisplay();
+        });
+      })(i, tr);
+
+      document.getElementById('vehBody').appendChild(tr);
+    }
+  }
+
+  function saveToStorage() {
+    localStorage.setItem('bapack_custom', JSON.stringify({ boxes: customBoxes, vehicles: customVehicles }));
+  }
+
+  function loadFromStorage() {
+    var raw = localStorage.getItem('bapack_custom');
+    if (!raw) return;
+    try {
+      var d = JSON.parse(raw);
+      if (d.boxes && Array.isArray(d.boxes)) {
+        customBoxes = d.boxes;
+        renderCustomBoxes();
+      }
+      if (d.vehicles && Array.isArray(d.vehicles)) {
+        customVehicles = d.vehicles;
+        renderCustomVehicles();
+      }
+    } catch (e) {}
+  }
+
+  build();
+  updateDisplay();
+
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,24 @@
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq-dev gcc curl postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY pyproject.toml poetry.lock* ./
+RUN pip install poetry==1.8.3 \
+    && poetry config virtualenvs.create false \
+    && poetry install --without dev --no-interaction --no-ansi
+
+COPY . .
+
+RUN useradd -m -u 1001 appuser && chown -R appuser:appuser /app
+USER appuser
+
+CMD ["sh", "-c", "echo '0 3 * * * python /app/manage.py database_backup' | crontab - && crond -f -l 2"]

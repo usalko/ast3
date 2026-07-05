@@ -109,6 +109,23 @@ services:
     command: celery -A core beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
 
   # ----------------------------------------------------------------
+  # Database backup (daily cron, 03:00 UTC)
+  # ----------------------------------------------------------------
+  backup:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.backup
+    restart: unless-stopped
+    environment:
+      <<: *backend-env
+      BACKUP_DIR: /backups/ast3
+    volumes:
+      - backup_data:/backups/ast3
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ----------------------------------------------------------------
   # Frontend (Vite dev server)
   # ----------------------------------------------------------------
   frontend:
@@ -171,6 +188,7 @@ volumes:
   postgres_data:
   redis_data:
   media_data:
+  backup_data:
   prometheus_data:
   grafana_data:
   frontend_node_modules:

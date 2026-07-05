@@ -109,18 +109,6 @@ services:
     command: celery -A core beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
 
   # ----------------------------------------------------------------
-  # ClamAV antivirus (attachment scanning)
-  # ----------------------------------------------------------------
-  clamav:
-    image: clamav/clamav:stable
-    restart: unless-stopped
-    volumes:
-      - clamav_db:/var/lib/clamav
-    environment:
-      CLAMD_CONF_MaxFileSize: 50M
-      CLAMD_CONF_MaxScanSize: 100M
-
-  # ----------------------------------------------------------------
   # Frontend (Vite dev server)
   # ----------------------------------------------------------------
   frontend:
@@ -182,7 +170,6 @@ volumes:
   postgres_data:
   redis_data:
   media_data:
-  clamav_db:
   prometheus_data:
   grafana_data:
   frontend_node_modules:

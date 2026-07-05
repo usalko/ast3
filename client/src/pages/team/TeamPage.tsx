@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Table, message, Button, Modal, Form, Input, Card, Space, Tag } from "antd";
+import { useGetIdentity } from "@refinedev/core";
 import { gqlQuery } from "@/api/graphql";
 
 type Project = { id: string; code?: string; name: string };
@@ -13,7 +14,15 @@ type User = {
   projects?: Project[];
 };
 
+type Identity = {
+  id?: string;
+  email?: string;
+  fullName?: string;
+};
+
 export function TeamPage() {
+  const { data: identity } = useGetIdentity<Identity>();
+  const isAdmin = identity?.email === "admin@test.local";
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -130,16 +139,17 @@ export function TeamPage() {
       title: "Действия",
       key: "actions",
       width: 200,
-      render: (_: unknown, record: User) => (
-        <Space>
-          <Button size="small" onClick={() => handleEditClick(record)}>
-            Редактировать
-          </Button>
-          <Button size="small" danger onClick={() => handleRemoveClick(record)}>
-            Удалить
-          </Button>
-        </Space>
-      ),
+      render: (_: unknown, record: User) =>
+        isAdmin ? (
+          <Space>
+            <Button size="small" onClick={() => handleEditClick(record)}>
+              Редактировать
+            </Button>
+            <Button size="small" danger onClick={() => handleRemoveClick(record)}>
+              Удалить
+            </Button>
+          </Space>
+        ) : null,
     },
   ];
 
@@ -148,9 +158,11 @@ export function TeamPage() {
       <Card
         title="Управление сотрудниками"
         extra={
-          <Button type="primary" onClick={() => setAddModalOpen(true)}>
-            Добавить сотрудника
-          </Button>
+          isAdmin ? (
+            <Button type="primary" onClick={() => setAddModalOpen(true)}>
+              Добавить сотрудника
+            </Button>
+          ) : undefined
         }
       >
         <Table<User>

@@ -4,21 +4,12 @@ import { gqlQuery } from "@/api/graphql";
 
 type Project = { id: string; code?: string; name: string };
 
-type Task = {
-  id: string;
-  code: string;
-  title: string;
-  projectId?: string;
-  status: { code: string; name: string };
-};
-
 type User = {
   id: string;
   email: string;
   firstName?: string | null;
   lastName?: string | null;
   roles?: string[];
-  assignedTasks?: Task[];
   projects?: Project[];
 };
 
@@ -28,6 +19,8 @@ export function TeamPage() {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [addForm] = Form.useForm();
   const [removeTarget, setRemoveTarget] = useState<{ userId: string; userName: string } | null>(null);
+  const [editTarget, setEditTarget] = useState<User | null>(null);
+  const [editForm] = Form.useForm();
 
   const loadUsers = async () => {
     setLoading(true);
@@ -88,6 +81,29 @@ export function TeamPage() {
     }
   };
 
+  const handleEditClick = (user: User) => {
+    editForm.setFieldsValue({ firstName: user.firstName || "", lastName: user.lastName || "" });
+    setEditTarget(user);
+  };
+
+  const handleEditOk = async () => {
+    try {
+      if (!editTarget) return;
+      const values = await editForm.validateFields();
+      await gqlQuery(
+        `mutation($userId:ID!,$firstName:String!,$lastName:String!){updateEmployee(userId:$userId,firstName:$firstName,lastName:$lastName){id firstName lastName}}`,
+        { userId: editTarget.id, firstName: values.firstName, lastName: values.lastName },
+      );
+      message.success("Имя изменено");
+      setEditTarget(null);
+      editForm.resetFields();
+      void loadUsers();
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : "";
+      message.error(`Не удалось изменить имя${detail ? `: ${detail}` : ""}`);
+    }
+  };
+
   const columns = [
     {
       title: "Имя",
@@ -113,11 +129,16 @@ export function TeamPage() {
     {
       title: "Действия",
       key: "actions",
-      width: 160,
+      width: 200,
       render: (_: unknown, record: User) => (
-        <Button size="small" danger onClick={() => handleRemoveClick(record)}>
-          Удалить
-        </Button>
+        <Space>
+          <Button size="small" onClick={() => handleEditClick(record)}>
+            Редактировать
+          </Button>
+          <Button size="small" danger onClick={() => handleRemoveClick(record)}>
+            Удалить
+          </Button>
+        </Space>
       ),
     },
   ];
@@ -153,6 +174,25 @@ export function TeamPage() {
         <Form form={addForm} layout="vertical">
           <Form.Item name="fullName" label="Имя" rules={[{ required: true }]}>
             <Input placeholder="Введите имя" />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title="Редактировать сотрудника"
+        open={!!editTarget}
+        onOk={handleEditOk}
+        onCancel={() => {
+          setEditTarget(null);
+          editForm.resetFields();
+        }}
+      >
+        <Form form={editForm} layout="vertical">
+          <Form.Item name="firstName" label="Имя" rules={[{ required: true }]}>
+            <Input placeholder="Введите имя" />
+          </Form.Item>
+          <Form.Item name="lastName" label="Фамилия" rules={[{ required: true }]}>
+            <Input placeholder="Введите фамилию" />
           </Form.Item>
         </Form>
       </Modal>

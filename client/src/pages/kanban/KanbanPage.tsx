@@ -45,7 +45,11 @@ export function KanbanPage() {
   useEffect(() => {
     gqlQuery<{ projects: Project[] }>("query { projects { id code name } }")
       .then((res) => {
-        const projectList = res.projects ?? [];
+        const projectList = (res.projects ?? []).sort((a, b) => {
+          if (a.code === "CMS") return -1;
+          if (b.code === "CMS") return 1;
+          return 0;
+        });
         setProjects(projectList);
         setProjectId((current) => current || projectList[0]?.id || "");
       })

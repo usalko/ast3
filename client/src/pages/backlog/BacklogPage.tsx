@@ -12,23 +12,32 @@ type BacklogTask = {
   project: { id: string; code?: string; name: string };
   createdAt?: string;
 };
+type UserOption = { id: string; firstName: string; roles?: string[] };
 
 const { Text, Title } = Typography;
 
 export function BacklogPage() {
   const { token } = theme.useToken();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [users, setUsers] = useState<UserOption[]>([]);
   const [tasks, setTasks] = useState<BacklogTask[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskProjectId, setNewTaskProjectId] = useState("");
+  const [newTaskAssigneeId, setNewTaskAssigneeId] = useState("");
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     gqlQuery<{ projects: Project[] }>("query { projects { id code name } }")
       .then((res) => setProjects(res.projects ?? []))
       .catch(() => message.error("Не удалось загрузить проекты"));
+
+    gqlQuery<{ users: UserOption[] }>("query { users { id firstName roles } }")
+      .then((res) => {
+        setUsers((res.users ?? []).filter((u) => !(u.roles ?? []).includes("admin")));
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -57,18 +66,18 @@ export function BacklogPage() {
     if (!newTaskTitle.trim() || !newTaskProjectId) return;
     setCreating(true);
     try {
-      const res = await gqlQuery<{ project: { statuses: TaskStatus[] } }>(
+      const projectRes = await gqlQuery<{ project: { statuses: TaskStatus[] } }>(
         `query ($projectId: ID!) {
           project(id: $projectId) { statuses { id code } }
         }`,
         { projectId: newTaskProjectId }
       );
-      const backlogStatus = res.project?.statuses?.find((s) => s.code === "backlog");
+      const backlogStatus = projectRes.project?.statuses?.find((s) => s.code === "backlog");
       if (!backlogStatus) {
         message.error("У проекта нет статуса 'Бэклог'");
         return;
       }
-      await gqlQuery(
+      const res = await gqlQuery<{ createTask: { id: string } }>(
         `mutation ($input: CreateTaskInput!) {
           createTask(input: $input) { id }
         }`,
@@ -80,10 +89,17 @@ export function BacklogPage() {
           },
         }
       );
+      if (newTaskAssigneeId && res.createTask?.id) {
+        await gqlQuery(
+          `mutation ($taskId: ID!, $userId: ID!) { addTaskAssignee(taskId: $taskId, userId: $userId) }`,
+          { taskId: res.createTask.id, userId: newTaskAssigneeId }
+        );
+      }
       message.success("Задача добавлена в бэклог");
       setModalOpen(false);
       setNewTaskTitle("");
       setNewTaskProjectId("");
+      setNewTaskAssigneeId("");
       loadBacklog();
     } catch (err) {
       const detail = err instanceof Error ? err.message : "";
@@ -192,6 +208,7 @@ export function BacklogPage() {
           setModalOpen(false);
           setNewTaskTitle("");
           setNewTaskProjectId("");
+          setNewTaskAssigneeId("");
         }}
         confirmLoading={creating}
         okText="Создать"
@@ -218,6 +235,20 @@ export function BacklogPage() {
               options={projects.map((p) => ({
                 label: `${p.code ? `[${p.code}] ` : ""}${p.name}`,
                 value: p.id,
+              }))}
+            />
+          </div>
+          <div>
+            <Text strong>Исполнитель</Text>
+            <Select
+              style={{ width: "100%", marginTop: 4 }}
+              value={newTaskAssigneeId || undefined}
+              onChange={(value) => setNewTaskAssigneeId(value as string)}
+              placeholder="Выберите исполнителя (необязательно)"
+              allowClear
+              options={users.map((u) => ({
+                label: u.firstName,
+                value: u.id,
               }))}
             />
           </div>

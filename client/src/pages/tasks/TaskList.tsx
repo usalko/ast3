@@ -176,13 +176,25 @@ export function TaskList() {
     a.project.name.localeCompare(b.project.name)
   );
 
+  const projectFlatData = projectGroups.flatMap((g) =>
+    g.tasks.map((t, i) => ({ ...t, _projectName: g.project.code ? `[${g.project.code}] ${g.project.name}` : g.project.name, _isFirst: i === 0 }))
+  );
+
   const baseColumns = [
     {
       title: "Название",
       dataIndex: "title",
       key: "title",
-      render: (v: string, record: Task) => (
-        <Link to={`/tasks/${record.id}/edit`}><Text strong>{v}</Text></Link>
+      sorter: undefined as unknown,
+      render: (v: string, record: Task & { _projectName?: string; _isFirst?: boolean }) => (
+        <>
+          {record._isFirst && (
+            <Text type="secondary" style={{ fontSize: 12, display: "block", marginBottom: 2 }}>
+              {record._projectName}
+            </Text>
+          )}
+          <Link to={`/tasks/${record.id}/edit`}><Text strong>{v}</Text></Link>
+        </>
       ),
     },
     {
@@ -244,20 +256,13 @@ export function TaskList() {
       {loading ? (
         <Text type="secondary">Загрузка...</Text>
       ) : (
-        projectGroups.map((group) => (
-          <div key={group.project.id} style={{ marginBottom: 24 }}>
-            <Text type="secondary" style={{ fontSize: 13, marginBottom: 4, display: "block" }}>
-              {group.project.code ? `[${group.project.code}] ` : ""}{group.project.name}
-            </Text>
-            <Table<Task>
-              rowKey="id"
-              dataSource={group.tasks}
-              columns={baseColumns}
-              pagination={false}
-              size="small"
-            />
-          </div>
-        ))
+        <Table<Task & { _projectName?: string; _isFirst?: boolean }>
+          rowKey="id"
+          dataSource={projectFlatData}
+          columns={baseColumns}
+          pagination={false}
+          size="small"
+        />
       )}
 
       <Modal

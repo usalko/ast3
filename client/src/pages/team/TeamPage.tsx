@@ -130,7 +130,7 @@ export function TeamPage() {
         record.tasks && record.tasks.length > 0
           ? record.tasks.map((t) => (
               <Tag key={t.id} style={{ marginBottom: 2 }}>
-                [{t.code}] {t.title}
+                {t.title}
               </Tag>
             ))
           : <span style={{ opacity: 0.5 }}>—</span>,

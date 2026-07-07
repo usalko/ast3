@@ -189,7 +189,7 @@ export function TaskList() {
       onCell: (_: Task, index?: number) => {
         const idx = index ?? 0;
         const isFirst = projectFlatData[idx]?._isFirst;
-        return isFirst ? { style: { paddingTop: 8, borderTop: "2px solid #f0f0f0" } } : {};
+        return isFirst ? { style: { paddingTop: 16, borderTop: "3px solid #d9d9d9" } } : {};
       },
       render: (v: string, record: Task & { _projectName?: string; _isFirst?: boolean }) => (
          <>

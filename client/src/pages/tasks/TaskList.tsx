@@ -201,14 +201,12 @@ export function TaskList() {
       title: "Комментарий",
       dataIndex: "comment",
       key: "comment",
-      width: 270,
       ellipsis: true,
       render: (v?: string) => v || "—",
     },
     {
       title: "Статус",
       key: "status",
-      width: 117,
       render: (_: unknown, record: Task) => (
         <Tag>{statusLabel(record.status?.code, record.status?.name)}</Tag>
       ),
@@ -216,14 +214,12 @@ export function TaskList() {
     {
       title: "Исполнитель",
       key: "assignee",
-      width: 117,
       render: (_: unknown, record: Task) =>
         (record.assignees ?? []).map((a) => a.firstName).join(", ") || "—",
     },
     {
       title: "Действия",
       key: "actions",
-      width: 144,
       render: (_: unknown, record: Task) => (
         <Space>
           <Link to={`/tasks/${record.id}/edit`}>
@@ -256,20 +252,18 @@ export function TaskList() {
       {loading ? (
         <Text type="secondary">Загрузка...</Text>
       ) : (
-        <div style={{ width: "90%", maxWidth: "100%" }}>
-          <Table<Task & { _projectName?: string; _isFirst?: boolean }>
-            rowKey="id"
-            dataSource={projectFlatData}
-            columns={baseColumns}
-            pagination={false}
-            size="small"
-            scroll={{ x: "max-content" }}
-            rowClassName={(_: Task, index: number) => {
-              if (index > 0 && projectFlatData[index]?._isFirst) return "project-divider";
-              return "";
-            }}
-          />
-        </div>
+        <Table<Task & { _projectName?: string; _isFirst?: boolean }>
+          rowKey="id"
+          dataSource={projectFlatData}
+          columns={baseColumns}
+          pagination={false}
+          size="small"
+          tableLayout="auto"
+          rowClassName={(_: Task, index: number) => {
+            if (index > 0 && projectFlatData[index]?._isFirst) return "project-divider";
+            return "";
+          }}
+        />
       )}
 
       <Modal

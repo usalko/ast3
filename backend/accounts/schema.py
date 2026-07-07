@@ -10,6 +10,14 @@ from strawberry import auto
 from .models import Department, User
 
 @strawberry.type
+class _TaskInfo:
+    id: strawberry.ID
+    code: str
+    title: str
+    status_code: str
+
+
+@strawberry.type
 class _ProjectInfo:
     id: strawberry.ID
     code: str | None = None
@@ -38,6 +46,26 @@ class UserType:
         return [
             _ProjectInfo(id=strawberry.ID(str(p.id)), code=p.code, name=p.name)
             for p in Project.objects.filter(memberships__user=self).exclude(status=Project.CANCELLED)
+        ]
+
+    @strawberry.field
+    def tasks(self) -> list[_TaskInfo]:
+        from tasks.models import Task, TaskAssignment
+        task_ids = list(TaskAssignment.objects.filter(user=self).values_list("task_id", flat=True))
+        return [
+            _TaskInfo(
+                id=strawberry.ID(str(t.id)),
+                code=t.code,
+                title=t.title,
+                status_code=t.status.code,
+            )
+            for t in Task.objects.filter(
+                id__in=task_ids,
+            ).exclude(
+                status__is_done=True,
+            ).exclude(
+                status__is_cancelled=True,
+            ).select_related("status").order_by("-created_at")
         ]
 
 

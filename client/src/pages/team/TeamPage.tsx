@@ -3,7 +3,7 @@ import { Table, message, Button, Modal, Form, Input, Card, Space, Tag } from "an
 import { useGetIdentity } from "@refinedev/core";
 import { gqlQuery } from "@/api/graphql";
 
-type Project = { id: string; code?: string; name: string };
+type TaskInfo = { id: string; code: string; title: string; statusCode: string };
 
 type User = {
   id: string;
@@ -11,7 +11,7 @@ type User = {
   firstName?: string | null;
   lastName?: string | null;
   roles?: string[];
-  projects?: Project[];
+  tasks?: TaskInfo[];
 };
 
 type Identity = {
@@ -34,7 +34,7 @@ export function TeamPage() {
   const loadUsers = async () => {
     setLoading(true);
     try {
-      const res = await gqlQuery<{ users: User[] }>("query { users { id email firstName roles projects { id code name } } }");
+      const res = await gqlQuery<{ users: User[] }>("query { users { id email firstName roles tasks { id code title statusCode } } }");
       const list = res.users ?? [];
       const filtered = list.filter((u) => !(u.roles || []).includes("admin") && u.email !== "admin@test.local");
       const sorted = [...filtered].sort((a, b) => (a.firstName || a.email).localeCompare(b.firstName || b.email));
@@ -124,13 +124,13 @@ export function TeamPage() {
       ),
     },
     {
-      title: "Проекты",
-      key: "projects",
+      title: "Задачи",
+      key: "tasks",
       render: (_: unknown, record: User) =>
-        record.projects && record.projects.length > 0
-          ? record.projects.map((p) => (
-              <Tag key={p.id} style={{ marginBottom: 2 }}>
-                {p.code ? `[${p.code}] ${p.name}` : p.name}
+        record.tasks && record.tasks.length > 0
+          ? record.tasks.map((t) => (
+              <Tag key={t.id} style={{ marginBottom: 2 }}>
+                [{t.code}] {t.title}
               </Tag>
             ))
           : <span style={{ opacity: 0.5 }}>—</span>,

@@ -262,6 +262,7 @@ export function TaskList() {
           columns={baseColumns}
           pagination={false}
           size="small"
+          scroll={{ x: 800 }}
           rowClassName={(_: Task, index: number) => {
             if (index > 0 && projectFlatData[index]?._isFirst) return "project-divider";
             return "";

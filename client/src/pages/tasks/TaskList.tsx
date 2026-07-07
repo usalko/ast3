@@ -201,6 +201,7 @@ export function TaskList() {
       title: "Комментарий",
       dataIndex: "comment",
       key: "comment",
+      width: "45%",
       ellipsis: true,
       render: (v?: string) => v || "—",
     },

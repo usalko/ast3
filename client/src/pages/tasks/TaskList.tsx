@@ -186,8 +186,13 @@ export function TaskList() {
       dataIndex: "title",
       key: "title",
       sorter: undefined as unknown,
+      onCell: (_: Task, index?: number) => {
+        const idx = index ?? 0;
+        const isFirst = projectFlatData[idx]?._isFirst;
+        return isFirst ? { style: { paddingTop: 8, borderTop: "2px solid #f0f0f0" } } : {};
+      },
       render: (v: string, record: Task & { _projectName?: string; _isFirst?: boolean }) => (
-        <>
+         <>
           {record._isFirst && (
             <Text type="secondary" style={{ fontSize: 12, display: "block", marginBottom: 2 }}>
               {record._projectName}
@@ -203,12 +208,16 @@ export function TaskList() {
       key: "comment",
       width: 300,
       ellipsis: true,
+      onCell: (_: Task, index?: number) =>
+        projectFlatData[index ?? 0]?._isFirst ? { style: { paddingTop: 8 } } : {},
       render: (v?: string) => v || "—",
     },
     {
       title: "Статус",
       key: "status",
       width: 130,
+      onCell: (_: Task, index?: number) =>
+        projectFlatData[index ?? 0]?._isFirst ? { style: { paddingTop: 8 } } : {},
       render: (_: unknown, record: Task) => (
         <Tag>{statusLabel(record.status?.code, record.status?.name)}</Tag>
       ),
@@ -217,6 +226,8 @@ export function TaskList() {
       title: "Исполнитель",
       key: "assignee",
       width: 130,
+      onCell: (_: Task, index?: number) =>
+        projectFlatData[index ?? 0]?._isFirst ? { style: { paddingTop: 8 } } : {},
       render: (_: unknown, record: Task) =>
         (record.assignees ?? []).map((a) => a.firstName).join(", ") || "—",
     },
@@ -224,6 +235,8 @@ export function TaskList() {
       title: "Действия",
       key: "actions",
       width: 160,
+      onCell: (_: Task, index?: number) =>
+        projectFlatData[index ?? 0]?._isFirst ? { style: { paddingTop: 8 } } : {},
       render: (_: unknown, record: Task) => (
         <Space>
           <Link to={`/tasks/${record.id}/edit`}>

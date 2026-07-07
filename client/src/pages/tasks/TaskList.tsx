@@ -186,8 +186,17 @@ export function TaskList() {
       ),
     },
     {
+      title: "Комментарий",
+      dataIndex: "comment",
+      key: "comment",
+      width: 300,
+      ellipsis: true,
+      render: (v?: string) => v || "—",
+    },
+    {
       title: "Статус",
       key: "status",
+      width: 130,
       render: (_: unknown, record: Task) => (
         <Tag>{statusLabel(record.status?.code, record.status?.name)}</Tag>
       ),
@@ -195,19 +204,14 @@ export function TaskList() {
     {
       title: "Исполнитель",
       key: "assignee",
+      width: 130,
       render: (_: unknown, record: Task) =>
         (record.assignees ?? []).map((a) => a.firstName).join(", ") || "—",
     },
     {
-      title: "Комментарий",
-      dataIndex: "comment",
-      key: "comment",
-      ellipsis: true,
-      render: (v?: string) => v || "—",
-    },
-    {
       title: "Действия",
       key: "actions",
+      width: 160,
       render: (_: unknown, record: Task) => (
         <Space>
           <Link to={`/tasks/${record.id}/edit`}>
@@ -251,7 +255,6 @@ export function TaskList() {
               columns={baseColumns}
               pagination={false}
               size="small"
-              showHeader={false}
             />
           </div>
         ))

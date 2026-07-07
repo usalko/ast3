@@ -243,7 +243,7 @@ export function TaskList() {
   ];
 
   return (
-    <div style={{ padding: 16 }}>
+    <div style={{ padding: 16, overflow: "hidden" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
         <Tabs activeKey={tab} onChange={setTab} items={[
           { key: "active", label: "К выполнению / В работе" },
@@ -262,7 +262,7 @@ export function TaskList() {
           columns={baseColumns}
           pagination={false}
           size="small"
-          scroll={{ x: "max-content" }}
+          scroll={{ x: "100%" }}
           rowClassName={(_: Task, index: number) => {
             if (index > 0 && projectFlatData[index]?._isFirst) return "project-divider";
             return "";

@@ -81,6 +81,7 @@ class Task(models.Model):
     actual_end = models.DateTimeField(null=True, blank=True)
     estimated_hours = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
     progress = models.SmallIntegerField(default=0)  # 0..100
+    comment = models.TextField(blank=True)
     risk_level = models.SmallIntegerField(default=0)  # computed by risks app
     board_order = models.FloatField(default=0.0)  # position within status column
     created_at = models.DateTimeField(auto_now_add=True)

@@ -18,6 +18,7 @@ type Task = {
   type?: string;
   progress?: number;
   priority?: number;
+  comment?: string;
   assigneeIds?: string[];
 };
 type TaskFormValues = Omit<Task, "plannedStart" | "plannedEnd"> & {
@@ -64,7 +65,7 @@ export function TaskForm() {
 
   useEffect(() => {
     if (!id) return;
-    gqlQuery<{ task: Task & { assigneeIds?: string[] } }>(`query ($id: ID!) { task(id: $id) { id title description plannedStart plannedEnd estimatedHours projectId statusId assigneeIds type progress priority } }`, { id }).then(async (res) => {
+    gqlQuery<{ task: Task & { assigneeIds?: string[] } }>(`query ($id: ID!) { task(id: $id) { id title description plannedStart plannedEnd estimatedHours projectId statusId assigneeIds type progress priority comment } }`, { id }).then(async (res) => {
       const t = res.task;
       const ids = t.assigneeIds ?? [];
       existingIdsRef.current = ids;
@@ -111,6 +112,7 @@ export function TaskForm() {
         statusId: values.statusId,
         type: values.type,
         priority: values.priority != null ? Math.round(Number(values.priority)) : 1,
+        comment: values.comment || "",
       };
 
       const projectId = values.projectId;
@@ -189,6 +191,9 @@ export function TaskForm() {
           </Form.Item>
           <Form.Item name="description" label="Описание">
             <Input.TextArea rows={3} />
+          </Form.Item>
+          <Form.Item name="comment" label="Комментарий исполнителя">
+            <Input.TextArea rows={3} placeholder="Опишите, как выполняется задача..." />
           </Form.Item>
           <Form.Item name="plannedStart" label="План старт">
             <DatePicker showTime={{ format: 'HH:mm' }} format="DD.MM.YYYY HH:mm" />

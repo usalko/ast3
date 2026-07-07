@@ -1,25 +1,46 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Card, Descriptions, Button, Modal, message, Tag } from "antd";
+import { Card, Descriptions, Button, Modal, message, Tag, Input } from "antd";
 import { useNavigate } from "react-router-dom";
 import { gqlQuery } from "@/api/graphql";
 import { riskLabel } from "@/utils/riskLabels";
 import { statusLabel } from "@/utils/statusLabels";
 
-type Task = { id: string; title: string; description?: string; plannedStart?: string | null; plannedEnd?: string | null; progress?: number | null; estimatedHours?: number | null; type?: string; priority?: number; status?: { id: string; name: string; code?: string } | null; assignees?: { firstName?: string | null }[] | null };
+type Task = { id: string; title: string; description?: string; plannedStart?: string | null; plannedEnd?: string | null; progress?: number | null; estimatedHours?: number | null; type?: string; priority?: number; comment?: string; status?: { id: string; name: string; code?: string } | null; assignees?: { firstName?: string | null }[] | null };
 
 export function TaskShow() {
   const { id } = useParams<{ id: string }>();
   const [task, setTask] = useState<Task | null>(null);
+  const [comment, setComment] = useState("");
+  const [savingComment, setSavingComment] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     if (!id) return;
-    gqlQuery<{ task: Task }>(`query ($id: ID!) { task(id: $id) { id title description plannedStart plannedEnd progress estimatedHours type priority status { id name code } assignees { firstName } } }`, { id })
-      .then((res) => setTask(res.task ?? null));
+    gqlQuery<{ task: Task }>(`query ($id: ID!) { task(id: $id) { id title description plannedStart plannedEnd progress estimatedHours type priority comment status { id name code } assignees { firstName } } }`, { id })
+      .then((res) => {
+        setTask(res.task ?? null);
+        setComment(res.task?.comment ?? "");
+      });
   }, [id]);
 
   if (!task) return <div style={{ padding: 16 }}>Загрузка...</div>;
+
+  async function handleSaveComment() {
+    if (!id) return;
+    setSavingComment(true);
+    try {
+      await gqlQuery(
+        `mutation ($id: ID!, $input: UpdateTaskInput!) { updateTask(id: $id, input: $input) { id } }`,
+        { id, input: { comment } }
+      );
+      message.success("Комментарий сохранён");
+    } catch (err) {
+      message.error("Не удалось сохранить комментарий");
+    } finally {
+      setSavingComment(false);
+    }
+  }
 
   async function handleDelete() {
     Modal.confirm({
@@ -59,6 +80,23 @@ export function TaskShow() {
           <Descriptions.Item label="Приоритет"><Tag color={task.priority !== undefined && task.priority !== null && task.priority >= 2 ? "error" : task.priority === 1 ? "warning" : "default"}>{task.plannedEnd && new Date(task.plannedEnd) < new Date() && (!task.status?.code || task.status.code !== "done") ? "Просрочено" : riskLabel(task.priority)}</Tag></Descriptions.Item>
           <Descriptions.Item label="Оценка">{task.estimatedHours ?? "—"} ч</Descriptions.Item>
         </Descriptions>
+      </Card>
+
+      <Card title="Комментарий исполнителя" style={{ marginTop: 16 }}>
+        <Input.TextArea
+          rows={4}
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          placeholder="Опишите, как выполняется задача..."
+        />
+        <Button
+          type="primary"
+          style={{ marginTop: 8 }}
+          loading={savingComment}
+          onClick={handleSaveComment}
+        >
+          Сохранить комментарий
+        </Button>
       </Card>
     </div>
   );

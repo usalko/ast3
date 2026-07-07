@@ -4,7 +4,6 @@ import { PlusOutlined } from "@ant-design/icons";
 import { Link } from "react-router-dom";
 import { gqlQuery } from "@/api/graphql";
 import { statusLabel } from "@/utils/statusLabels";
-import { riskLabel } from "@/utils/riskLabels";
 
 const { Text } = Typography;
 
@@ -15,7 +14,10 @@ type Task = {
   type?: string;
   progress?: number | null;
   priority?: number;
+  comment?: string;
   status: { name: string; code: string; order?: number };
+  assignees?: { firstName?: string | null }[] | null;
+  project?: { id: string; code: string; name: string } | null;
 };
 
 type ProjectOption = { id: string; code?: string; name: string };
@@ -51,7 +53,7 @@ export function TaskList() {
   useEffect(() => {
     setLoading(true);
     gqlQuery<{ tasksAll: Task[] }>(
-      `query { tasksAll { id code title type progress priority status { name code order } } }`
+        `query { tasksAll { id code title type progress priority comment status { name code order } assignees { firstName } project { id code name } } }`
     )
       .then((res) => {
         const sorted = (res.tasksAll ?? []).sort(
@@ -136,7 +138,7 @@ export function TaskList() {
 
       setLoading(true);
       gqlQuery<{ tasksAll: Task[] }>(
-        `query { tasksAll { id code title type progress priority status { name code order } } }`
+      `query { tasksAll { id code title type progress priority comment status { name code order } assignees { firstName } project { id code name } } }`
       )
         .then((res) => {
           const sorted = (res.tasksAll ?? []).sort(
@@ -157,14 +159,24 @@ export function TaskList() {
     tab === "active" ? ACTIVE_CODES.has(t.status?.code) : COMPLETED_CODES.has(t.status?.code)
   );
 
+  const groupedByProject = filteredData.reduce<Record<string, { project: { id: string; code: string; name: string }; tasks: Task[] }>>((acc, task) => {
+    const p = task.project;
+    const key = p?.id ?? "__none__";
+    if (!acc[key]) {
+      acc[key] = {
+        project: p ?? { id: "__none__", code: "", name: "Без проекта" },
+        tasks: [],
+      };
+    }
+    acc[key].tasks.push(task);
+    return acc;
+  }, {});
+
+  const projectGroups = Object.values(groupedByProject).sort((a, b) =>
+    a.project.name.localeCompare(b.project.name)
+  );
+
   const baseColumns = [
-    {
-      title: "Код",
-      dataIndex: "code",
-      key: "code",
-      width: 200,
-      render: (v?: string) => (v ? <Text code>{v}</Text> : "—"),
-    },
     {
       title: "Название",
       dataIndex: "title",
@@ -181,16 +193,17 @@ export function TaskList() {
       ),
     },
     {
-      title: "Приоритет",
-      dataIndex: "priority",
-      key: "priority",
-      render: (v?: number) => riskLabel(v),
+      title: "Исполнитель",
+      key: "assignee",
+      render: (_: unknown, record: Task) =>
+        (record.assignees ?? []).map((a) => a.firstName).join(", ") || "—",
     },
     {
-      title: "Прогресс",
-      dataIndex: "progress",
-      key: "progress",
-      render: (v?: number | null) => `${v ?? 0}%`,
+      title: "Комментарий",
+      dataIndex: "comment",
+      key: "comment",
+      ellipsis: true,
+      render: (v?: string) => v || "—",
     },
     {
       title: "Действия",
@@ -213,10 +226,6 @@ export function TaskList() {
     },
   ];
 
-  const columns = tab === "completed"
-    ? baseColumns.filter((c) => c.key !== "progress")
-    : baseColumns;
-
   return (
     <div style={{ padding: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
@@ -228,13 +237,25 @@ export function TaskList() {
           Добавить задачу
         </Button>
       </div>
-      <Table<Task>
-        rowKey="id"
-        dataSource={filteredData}
-        loading={loading}
-        columns={columns}
-        pagination={false}
-      />
+      {loading ? (
+        <Text type="secondary">Загрузка...</Text>
+      ) : (
+        projectGroups.map((group) => (
+          <div key={group.project.id} style={{ marginBottom: 24 }}>
+            <Text type="secondary" style={{ fontSize: 13, marginBottom: 4, display: "block" }}>
+              {group.project.code ? `[${group.project.code}] ` : ""}{group.project.name}
+            </Text>
+            <Table<Task>
+              rowKey="id"
+              dataSource={group.tasks}
+              columns={baseColumns}
+              pagination={false}
+              size="small"
+              showHeader={false}
+            />
+          </div>
+        ))
+      )}
 
       <Modal
         title="Добавить задачу"

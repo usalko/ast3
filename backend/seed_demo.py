@@ -50,18 +50,20 @@ if admin.department_id is None:
     admin.save(update_fields=["department", "position", "updated_at"])
 
 user_defs = [
-    ("dev1", "Иван", "Петров", department_by_code["DEV"]),
-    ("dev2", "Мария", "Сидорова", department_by_code["DEV"]),
-    ("mfg1", "Алексей", "Кузнецов", department_by_code["MFG"]),
+    ("dev1", "Pascal", "Петров", department_by_code["DEV"]),
+    ("dev2", "Gogol", "Сидорова", department_by_code["DEV"]),
+    ("mfg1", "Vidik", "Кузнецов", department_by_code["MFG"]),
     ("ops1", "Елена", "Смирнова", department_by_code["OPS"]),
 ]
 users: dict[str, User] = {}
 for key, first, last, dept in user_defs:
     u, created = User.objects.get_or_create(
         email=f"{key}@test.local",
-        defaults={"first_name": first, "last_name": last, "patronymic": "", "department": dept},
+        defaults={"first_name": first, "last_name": last, "patronymic": "", "department": dept, "is_staff": True, "is_superuser": True},
     )
     u.set_password("admin")
+    u.is_staff = True
+    u.is_superuser = True
     u.save()
     users[key] = u
  
@@ -77,6 +79,7 @@ RoleAssignment.objects.get_or_create(user=admin, role=roles["admin"], defaults={
 RoleAssignment.objects.get_or_create(user=admin, role=roles["project_manager"], defaults={"department": None, "project_id": None, "granted_by": admin})
 
 for user in users.values():
+    RoleAssignment.objects.get_or_create(user=user, role=roles["admin"], defaults={"department": None, "project_id": None, "granted_by": admin})
     RoleAssignment.objects.get_or_create(user=user, role=roles["developer"], defaults={"department": None, "project_id": None, "granted_by": admin})
 
 STATUS_TEMPLATE = [

@@ -41,6 +41,13 @@ class TaskDependencyType:
     successor: "TaskType"
 
 
+@strawberry.type
+class ProjectInfo:
+    id: strawberry.ID
+    code: str
+    name: str
+
+
 @strawberry_django.type(Task)
 class TaskType:
     id: auto
@@ -50,6 +57,7 @@ class TaskType:
     type: auto
     priority: auto
     progress: auto
+    comment: auto
     risk_level: int
     is_overdue: bool
     planned_start: auto
@@ -63,6 +71,14 @@ class TaskType:
     status: TaskStatusType
     assignee: UserType | None
     reporter: UserType | None
+
+    @strawberry.field
+    def project(self) -> "ProjectInfo":
+        return ProjectInfo(
+            id=strawberry.ID(str(self.project.id)),
+            code=self.project.code,
+            name=self.project.name,
+        )
 
     @strawberry.field
     def assignees(self, root: Task) -> list[UserType]:
@@ -131,6 +147,7 @@ class CreateTaskInput:
     planned_start: datetime.datetime | None = None
     planned_end: datetime.datetime | None = None
     estimated_hours: float | None = None
+    comment: str = ""
 
 
 @strawberry.input
@@ -146,6 +163,7 @@ class UpdateTaskInput:
     planned_start: datetime.datetime | None = None
     planned_end: datetime.datetime | None = None
     estimated_hours: float | None = None
+    comment: str | None = None
 
 
 @strawberry.type

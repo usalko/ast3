@@ -44,7 +44,7 @@ export function dataProvider(url: string): DataProvider {
     `;
 
   const taskFields = `
-      id code title description type priority progress riskLevel isOverdue plannedStart plannedEnd actualStart actualEnd estimatedHours boardOrder createdAt updatedAt status { id name code color order isDone isCancelled } assignee { id email firstName lastName department { id name } } reporter { id email firstName lastName department { id name } }
+      id code title description type priority progress comment riskLevel isOverdue plannedStart plannedEnd actualStart actualEnd estimatedHours boardOrder createdAt updatedAt status { id name code color order isDone isCancelled } assignee { id email firstName lastName department { id name } } reporter { id email firstName lastName department { id name } }
     `;
 
   return {

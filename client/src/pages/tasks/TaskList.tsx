@@ -373,6 +373,8 @@ export function TaskList() {
               value={newTaskTitle}
               onChange={(e) => setNewTaskTitle(e.target.value)}
               placeholder="Введите название задачи"
+              maxLength={250}
+              showCount
               style={{ marginTop: 4 }}
             />
           </div>

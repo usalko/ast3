@@ -301,14 +301,9 @@ export function SiderMenu({ Title = SiderTitle }: SiderMenuProps) {
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <UserOutlined />
           <div style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {identityLoading ? "Загрузка..." : identity?.fullName || identity?.email || "Пользователь"}
+            {identityLoading ? "Загрузка..." : identity?.email || "Пользователь"}
           </div>
         </div>
-        {identity?.email ? (
-          <div style={{ fontSize: 12, color: token.colorTextSecondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {identity.email}
-          </div>
-        ) : null}
       </div>
     );
   };

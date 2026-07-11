@@ -90,9 +90,9 @@ export function TaskList() {
 
   async function handleProjectChange(projectId: string) {
     setNewTaskProjectId(projectId);
-    setNewTaskStatusId("");
     if (!projectId) {
       setStatuses([]);
+      setNewTaskStatusId("");
       return;
     }
     try {
@@ -100,7 +100,12 @@ export function TaskList() {
         `query ($id: ID!) { project(id: $id) { statuses { id name code } } }`,
         { id: projectId }
       );
-      setStatuses((res.project?.statuses ?? []).filter((s) => s.code !== "backlog"));
+      const filtered = (res.project?.statuses ?? []).filter((s) => s.code !== "backlog");
+      setStatuses(filtered);
+      const todoStatus = filtered.find((s) => s.code === "todo");
+      if (todoStatus) {
+        setNewTaskStatusId(todoStatus.id);
+      }
     } catch {
       message.error("Не удалось загрузить статусы проекта");
     }
@@ -279,7 +284,7 @@ export function TaskList() {
           setNewTaskAssigneeId("");
           setStatuses([]);
         }}
-        confirmLoading={creating}
+        okButtonProps={{ disabled: !newTaskTitle.trim() || !newTaskProjectId || !newTaskStatusId, loading: creating }}
         okText="Создать"
         cancelText="Отмена"
       >

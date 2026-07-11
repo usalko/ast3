@@ -63,7 +63,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     @property
     def full_name(self) -> str:
-        return self.first_name
+        return f"{self.last_name} {self.first_name} {self.patronymic}".strip() or self.email
 
 
 class Role(models.Model):

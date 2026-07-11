@@ -12,7 +12,7 @@ from strawberry import auto
 from accounts.schema import UserType
 from projects.models import Project
 
-from .models import Task, TaskDependency, TaskStatus, TaskAssignment
+from .models import Task, TaskDependency, TaskStatus, TaskAssignment, Comment
 
 _executor = ThreadPoolExecutor(max_workers=8)
 
@@ -135,6 +135,21 @@ class TaskType:
         )
 
 
+@strawberry_django.type(Comment)
+class CommentType:
+    id: auto
+    author_name: auto
+    body: auto
+    number: int
+    created_at: auto
+
+
+@strawberry.input
+class CreateCommentInput:
+    task_id: strawberry.ID
+    body: str
+
+
 @strawberry.input
 class CreateTaskInput:
     project_id: strawberry.ID
@@ -235,6 +250,10 @@ class TasksQuery:
             ))
         return result
 
+    @strawberry_django.field
+    def task_comments(self, task_id: strawberry.ID) -> list[CommentType]:
+        return Comment.objects.filter(task_id=task_id, is_deleted=False).order_by("number")
+
 
 @strawberry.type
 class TasksMutation:
@@ -301,6 +320,10 @@ class TasksMutation:
             TaskAssignment.objects.create(task=task, user_id=uid)
         AuditLog.log(actor=info.context.request.user, action="task.set_assignees", resource_type="task", resource_id=str(task_id), payload={"user_ids": [str(u) for u in user_ids]}, request=info.context.request)
         return True
+
+    @strawberry.mutation
+    def create_comment(self, info: strawberry.types.Info, input: CreateCommentInput) -> CommentType:
+        return _run_sync(_create_comment_sync, info, input)
 
 
 def _create_task_sync(info: strawberry.types.Info, input: CreateTaskInput) -> TaskType:
@@ -406,3 +429,26 @@ def _delete_task_sync(
         request=info.context.request,
     )
     return True
+
+
+def _create_comment_sync(info: strawberry.types.Info, input: CreateCommentInput) -> CommentType:
+    from permissions.helpers import require_project_member
+    from audit.models import AuditLog
+
+    task = Task.objects.select_related("project").get(pk=input.task_id)
+    require_project_member(info, project_id=str(task.project_id))
+    comment = Comment(
+        task=task,
+        author=info.context.request.user,
+        body=input.body,
+    )
+    comment.save()
+    AuditLog.log(
+        actor=info.context.request.user,
+        action="comment.create",
+        resource_type="comment",
+        resource_id=str(comment.id),
+        payload={"task_id": str(input.task_id), "number": comment.number},
+        request=info.context.request,
+    )
+    return comment  # type: ignore[return-value]

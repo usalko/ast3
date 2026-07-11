@@ -1,42 +1,67 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Card, Descriptions, Button, Modal, message, Tag, Input } from "antd";
+import { Card, Descriptions, Button, Modal, message, Tag, Input, List, Typography } from "antd";
 import { useNavigate } from "react-router-dom";
 import { gqlQuery } from "@/api/graphql";
 import { riskLabel } from "@/utils/riskLabels";
 import { statusLabel } from "@/utils/statusLabels";
+import dayjs from "dayjs";
 
 type Task = { id: string; title: string; description?: string; plannedStart?: string | null; plannedEnd?: string | null; progress?: number | null; estimatedHours?: number | null; type?: string; priority?: number; comment?: string; status?: { id: string; name: string; code?: string } | null; assignees?: { firstName?: string | null }[] | null };
+
+type TaskComment = {
+  id: string;
+  authorName: string;
+  body: string;
+  number: number;
+  createdAt: string;
+};
 
 export function TaskShow() {
   const { id } = useParams<{ id: string }>();
   const [task, setTask] = useState<Task | null>(null);
-  const [comment, setComment] = useState("");
+  const [newComment, setNewComment] = useState("");
   const [savingComment, setSavingComment] = useState(false);
+  const [comments, setComments] = useState<TaskComment[]>([]);
   const navigate = useNavigate();
+
+  const loadComments = async () => {
+    if (!id) return;
+    try {
+      const res = await gqlQuery<{ taskComments: TaskComment[] }>(
+        `query ($taskId: ID!) { taskComments(taskId: $taskId) { id authorName body number createdAt } }`,
+        { taskId: id }
+      );
+      setComments(res.taskComments ?? []);
+    } catch {
+      setComments([]);
+    }
+  };
 
   useEffect(() => {
     if (!id) return;
     gqlQuery<{ task: Task }>(`query ($id: ID!) { task(id: $id) { id title description plannedStart plannedEnd progress estimatedHours type priority comment status { id name code } assignees { firstName } } }`, { id })
       .then((res) => {
         setTask(res.task ?? null);
-        setComment(res.task?.comment ?? "");
       });
+    loadComments();
   }, [id]);
 
   if (!task) return <div style={{ padding: 16 }}>Загрузка...</div>;
 
   async function handleSaveComment() {
-    if (!id) return;
+    if (!id || !newComment.trim()) return;
     setSavingComment(true);
     try {
       await gqlQuery(
-        `mutation ($id: ID!, $input: UpdateTaskInput!) { updateTask(id: $id, input: $input) { id } }`,
-        { id, input: { comment } }
+        `mutation ($input: CreateCommentInput!) { createComment(input: $input) { id authorName body number createdAt } }`,
+        { input: { taskId: id, body: newComment } }
       );
-      message.success("Комментарий сохранён");
+      message.success("Комментарий добавлен");
+      setNewComment("");
+      loadComments();
     } catch (err) {
-      message.error("Не удалось сохранить комментарий");
+      message.error("Не удалось добавить комментарий");
     } finally {
       setSavingComment(false);
     }
@@ -65,7 +90,6 @@ export function TaskShow() {
     <div style={{ padding: 16 }}>
       <div style={{ marginBottom: 12 }}>
         <Button type="primary" style={{ marginRight: 8 }} onClick={() => navigate(`/tasks/${task.id}/edit`)}>Редактировать</Button>
-        <Button style={{ marginRight: 8 }} onClick={() => navigate("/time-tracking")}>Учёт времени</Button>
         <Button danger onClick={handleDelete}>Удалить</Button>
       </div>
 
@@ -82,21 +106,38 @@ export function TaskShow() {
         </Descriptions>
       </Card>
 
-      <Card title="Комментарий исполнителя" style={{ marginTop: 16 }}>
-        <Input.TextArea
-          rows={4}
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-          placeholder="Опишите, как выполняется задача..."
+      <Card title="Комментарии" style={{ marginTop: 16 }}>
+        <div style={{ marginBottom: 16 }}>
+          <Input.TextArea
+            rows={3}
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+            placeholder="Добавьте комментарий..."
+          />
+          <Button
+            type="primary"
+            style={{ marginTop: 8 }}
+            loading={savingComment}
+            onClick={handleSaveComment}
+            disabled={!newComment.trim()}
+          >
+            Добавить комментарий
+          </Button>
+        </div>
+        <List
+          dataSource={comments}
+          locale={{ emptyText: "Нет комментариев" }}
+          renderItem={(c) => (
+            <List.Item style={{ padding: "12px 0" }}>
+              <div style={{ width: "100%" }}>
+                <Typography.Text type="secondary" style={{ fontSize: 12, display: "block", marginBottom: 4 }}>
+                  {dayjs(c.createdAt).format("DD.MM.YYYY HH:mm")} — {c.number} • {c.authorName}
+                </Typography.Text>
+                <div style={{ whiteSpace: "pre-wrap" }}>{c.body}</div>
+              </div>
+            </List.Item>
+          )}
         />
-        <Button
-          type="primary"
-          style={{ marginTop: 8 }}
-          loading={savingComment}
-          onClick={handleSaveComment}
-        >
-          Сохранить комментарий
-        </Button>
       </Card>
     </div>
   );

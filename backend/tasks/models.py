@@ -128,13 +128,24 @@ class TaskDependency(models.Model):
 class Comment(models.Model):
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="comments")
     author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    author_name = models.CharField(max_length=300, blank=True)
     body = models.TextField()
+    number = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_deleted = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["created_at"]
+        unique_together = [("task", "number")]
+
+    def save(self, *args: object, **kwargs: object) -> None:
+        if self.pk is None:
+            last = Comment.objects.filter(task=self.task).aggregate(models.Max("number"))["number__max"]
+            self.number = (last or 0) + 1
+        if not self.author_name:
+            self.author_name = self.author.full_name or self.author.email
+        super().save(*args, **kwargs)
 
 
 class Attachment(models.Model):

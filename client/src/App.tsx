@@ -92,11 +92,6 @@ export default function App() {
                 list: "/analytics",
                 meta: { label: "Аналитика" },
               },
-              {
-                name: "time-tracking",
-                list: "/time-tracking",
-                meta: { label: "Тайм-трекинг" },
-              },
             ]}
             options={{ syncWithLocation: true, warnWhenUnsavedChanges: true }}
           >

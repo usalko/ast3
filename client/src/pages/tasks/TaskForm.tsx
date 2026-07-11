@@ -37,11 +37,19 @@ export function TaskForm() {
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [saving, setSaving] = useState(false);
+  const [formValid, setFormValid] = useState(!!id);
   const existingIdsRef = useRef<string[]>([]);
+
+  const checkFormValid = () => {
+    if (id) return;
+    const vals = form.getFieldsValue();
+    setFormValid(!!vals.projectId && !!vals.statusId && !!vals.title?.trim());
+  };
 
   const loadStatuses = async (projectId: string) => {
     if (!projectId) {
       setStatuses([]);
+      form.setFieldValue("statusId", undefined);
       return;
     }
     try {
@@ -49,7 +57,13 @@ export function TaskForm() {
         `query ($id: ID!) { project(id: $id) { statuses { id name code } } }`,
         { id: projectId }
       );
-      setStatuses((res.project?.statuses ?? []).filter((s) => s.code !== "backlog"));
+      const filtered = (res.project?.statuses ?? []).filter((s) => s.code !== "backlog");
+      setStatuses(filtered);
+      if (!id) {
+        const todoStatus = filtered.find((s) => s.code === "todo");
+        form.setFieldValue("statusId", todoStatus?.id);
+        checkFormValid();
+      }
     } catch {
       message.error("Не удалось загрузить статусы проекта");
     }
@@ -146,7 +160,9 @@ export function TaskForm() {
   return (
     <div style={{ padding: 16 }}>
       <Card title={id ? "Редактировать задачу" : "Создать задачу"}>
-         <Form key={id || "create"} form={form} layout="vertical" onFinish={onFinish} initialValues={{ title: "", description: "", estimatedHours: null, type: "software", progress: 0, priority: 1, assigneeIds: undefined }}>
+          <Form key={id || "create"} form={form} layout="vertical" onFinish={onFinish} 
+      onValuesChange={checkFormValid}
+             initialValues={{ title: "", description: "", estimatedHours: null, type: "software", progress: 0, priority: 1 }}>
 
             <Form.Item name="projectId" label="Проект" rules={[{ required: true, message: "Выберите проект" }]}>
               <Select
@@ -205,7 +221,7 @@ export function TaskForm() {
             <InputNumber min={0} />
           </Form.Item>
           <Form.Item>
-            <Button type="primary" htmlType="submit" loading={saving}>Сохранить</Button>
+            <Button type="primary" htmlType="submit" loading={saving} disabled={!id && !formValid}>Сохранить</Button>
           </Form.Item>
         </Form>
       </Card>

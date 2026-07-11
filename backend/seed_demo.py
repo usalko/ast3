@@ -20,9 +20,9 @@ from tracking.models import TimeEntry  # noqa: E402
 admin, _ = User.objects.get_or_create(
     email="admin@test.local",
     defaults={
-        "first_name": "Admin",
-        "last_name": "User",
-        "patronymic": "",
+        "first_name": "Админ",
+        "last_name": "Главный",
+        "patronymic": "Системович",
         "is_staff": True,
         "is_superuser": True,
         "is_active": True,
@@ -50,18 +50,19 @@ if admin.department_id is None:
     admin.save(update_fields=["department", "position", "updated_at"])
 
 user_defs = [
-    ("dev1", "Pascal", "Петров", department_by_code["DEV"]),
-    ("dev2", "Gogol", "Сидорова", department_by_code["DEV"]),
-    ("mfg1", "Vidik", "Кузнецов", department_by_code["MFG"]),
-    ("ops1", "Елена", "Смирнова", department_by_code["OPS"]),
+    ("gogol", "Николай", "Гоголь", "Писателевич", department_by_code["DEV"]),
+    ("pascal", "Блез", "Паскаль", "Математикович", department_by_code["DEV"]),
 ]
 users: dict[str, User] = {}
-for key, first, last, dept in user_defs:
+for key, first, last, patron, dept in user_defs:
     u, created = User.objects.get_or_create(
         email=f"{key}@test.local",
-        defaults={"first_name": first, "last_name": last, "patronymic": "", "department": dept, "is_staff": True, "is_superuser": True},
+        defaults={"first_name": first, "last_name": last, "patronymic": patron, "department": dept, "is_staff": True, "is_superuser": True},
     )
     u.set_password("admin")
+    u.first_name = first
+    u.last_name = last
+    u.patronymic = patron
     u.is_staff = True
     u.is_superuser = True
     u.save()
@@ -98,12 +99,12 @@ PROJECTS = [
         "type": Project.SOFTWARE,
         "department": department_by_code["DEV"],
         "tasks": [
-            ("Согласовать ТЗ", "Собрать требования и согласовать техническое задание.", "done", 100, 0, 8, "dev1"),
-            ("Дизайн главной страницы", "Макеты в Figma для главной и личного кабинета.", "done", 100, 2, 16, "dev1"),
-            ("Вёрстка лендинга", "Адаптивная вёрстка по утверждённым макетам.", "in_progress", 60, 1, 24, "dev1"),
-            ("Авторизация по JWT", "Реализовать вход и обновление токенов.", "in_progress", 40, 3, 20, "dev1"),
-            ("Настроить CI/CD", "Сборка, тесты и деплой через пайплайн.", "todo", 0, 7, 12, "ops1"),
-            ("Страница отчётов", "Графики и выгрузка в Excel.", "backlog", 0, 14, 30, "dev2"),
+            ("Согласовать ТЗ", "Собрать требования и согласовать техническое задание.", "done", 100, 0, 8, "gogol"),
+            ("Дизайн главной страницы", "Макеты в Figma для главной и личного кабинета.", "done", 100, 2, 16, "gogol"),
+            ("Вёрстка лендинга", "Адаптивная вёрстка по утверждённым макетам.", "in_progress", 60, 1, 24, "gogol"),
+            ("Авторизация по JWT", "Реализовать вход и обновление токенов.", "in_progress", 40, 3, 20, "gogol"),
+            ("Настроить CI/CD", "Сборка, тесты и деплой через пайплайн.", "todo", 0, 7, 12, "pascal"),
+            ("Страница отчётов", "Графики и выгрузка в Excel.", "backlog", 0, 14, 30, "pascal"),
         ],
     },
     {
@@ -113,10 +114,10 @@ PROJECTS = [
         "type": Project.SOFTWARE,
         "department": department_by_code["DEV"],
         "tasks": [
-            ("Исследование рынка", "Анализ конкурентов и пользовательских сценариев.", "done", 100, 0, 10, "dev1"),
-            ("Прототип навигации", "Кликабельный прототип основных экранов.", "in_progress", 50, 2, 18, "dev2"),
-            ("Push-уведомления", "Интеграция с сервисом уведомлений.", "todo", 0, 5, 14, "dev1"),
-            ("Оффлайн-режим", "Кэширование данных и синхронизация.", "backlog", 0, 12, 26, "dev2"),
+            ("Исследование рынка", "Анализ конкурентов и пользовательских сценариев.", "done", 100, 0, 10, "gogol"),
+            ("Прототип навигации", "Кликабельный прототип основных экранов.", "in_progress", 50, 2, 18, "pascal"),
+            ("Push-уведомления", "Интеграция с сервисом уведомлений.", "todo", 0, 5, 14, "gogol"),
+            ("Оффлайн-режим", "Кэширование данных и синхронизация.", "backlog", 0, 12, 26, "pascal"),
         ],
     },
     {
@@ -126,11 +127,11 @@ PROJECTS = [
         "type": Project.SOFTWARE,
         "department": department_by_code["OPS"],
         "tasks": [
-            ("Аудит серверов", "Инвентаризация и оценка нагрузки.", "done", 100, 0, 12, "ops1"),
-            ("Контейнеризация сервисов", "Docker-образы для всех сервисов.", "in_progress", 70, 1, 20, "ops1"),
-            ("Настроить Prometheus/Grafana", "Метрики и дашборды.", "in_progress", 30, 4, 16, "ops1"),
-            ("Резервное копирование", "Регулярные бэкапы и проверка восстановления.", "todo", 0, 9, 10, "ops1"),
-            ("Документация по эксплуатации", "Runbook и инструкции дежурной смены.", "backlog", 0, 16, 8, "ops1"),
+            ("Аудит серверов", "Инвентаризация и оценка нагрузки.", "done", 100, 0, 12, "pascal"),
+            ("Контейнеризация сервисов", "Docker-образы для всех сервисов.", "in_progress", 70, 1, 20, "pascal"),
+            ("Настроить Prometheus/Grafana", "Метрики и дашборды.", "in_progress", 30, 4, 16, "pascal"),
+            ("Резервное копирование", "Регулярные бэкапы и проверка восстановления.", "todo", 0, 9, 10, "pascal"),
+            ("Документация по эксплуатации", "Runbook и инструкции дежурной смены.", "backlog", 0, 16, 8, "pascal"),
         ],
     },
     {
@@ -140,11 +141,11 @@ PROJECTS = [
         "type": Project.HARDWARE,
         "department": department_by_code["MFG"],
         "tasks": [
-            ("Закупить комплектующие", "Проверить спецификацию и оформить закупку.", "done", 100, 0, 6, "mfg1"),
-            ("Изготовить корпус", "Подготовить корпус по утверждённым чертежам.", "in_progress", 65, 2, 18, "mfg1"),
-            ("Собрать макет", "Собрать первый рабочий макет изделия.", "todo", 0, 6, 24, "mfg1"),
-            ("Провести испытания", "Проверить механику, питание и базовые функции.", "todo", 0, 10, 16, "mfg1"),
-            ("Подготовить отчёт", "Оформить результаты испытаний и замечания.", "backlog", 0, 14, 10, "mfg1"),
+            ("Закупить комплектующие", "Проверить спецификацию и оформить закупку.", "done", 100, 0, 6, "pascal"),
+            ("Изготовить корпус", "Подготовить корпус по утверждённым чертежам.", "in_progress", 65, 2, 18, "pascal"),
+            ("Собрать макет", "Собрать первый рабочий макет изделия.", "todo", 0, 6, 24, "pascal"),
+            ("Провести испытания", "Проверить механику, питание и базовые функции.", "todo", 0, 10, 16, "pascal"),
+            ("Подготовить отчёт", "Оформить результаты испытаний и замечания.", "backlog", 0, 14, 10, "pascal"),
         ],
     },
 ]

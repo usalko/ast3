@@ -53,8 +53,8 @@ export const authProvider: AuthProvider = {
 
   getIdentity: async () => {
     try {
-      const data = await client.request<{ me: { id: string; email: string; fullName: string } | null }>(
-        `query { me { id email fullName } }`
+      const data = await client.request<{ me: { id: string; email: string; fullName: string; isStaff: boolean; isSuperuser: boolean } | null }>(
+        `query { me { id email fullName isStaff isSuperuser } }`
       );
       return data.me ?? null;
     } catch {

@@ -34,6 +34,8 @@ class UserType:
     patronymic: auto
     position: auto
     is_active: auto
+    is_staff: auto
+    is_superuser: auto
     full_name: str
     department: DepartmentType | None
 
@@ -287,8 +289,8 @@ class AccountsMutation:
         from .models import Department, Role, RoleAssignment
 
         caller = info.context.request.user
-        if caller.is_anonymous or not caller.is_superuser:
-            raise PermissionDenied("Superuser required")
+        if caller.is_anonymous or not caller.is_staff:
+            raise PermissionDenied("Staff or superuser required")
 
         user = User.objects.get(pk=user_id)
         changed = []

@@ -22,6 +22,8 @@ type Identity = {
   id?: string;
   email?: string;
   fullName?: string;
+  isStaff?: boolean;
+  isSuperuser?: boolean;
 };
 
 type DepartmentOption = { id: string; name: string };
@@ -36,7 +38,7 @@ const ALL_ROLES: RoleOption[] = [
 
 export function TeamPage() {
   const { data: identity } = useGetIdentity<Identity>();
-  const isAdmin = identity?.email === "admin@test.local";
+  const isAdmin = identity?.isStaff === true || identity?.isSuperuser === true;
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);

@@ -58,7 +58,14 @@ export const authProvider: AuthProvider = {
       );
       return data.me ?? null;
     } catch {
-      return null;
+      try {
+        const data = await client.request<{ me: { id: string; email: string; fullName: string } | null }>(
+          `query { me { id email fullName } }`
+        );
+        return data.me ?? null;
+      } catch {
+        return null;
+      }
     }
   },
 

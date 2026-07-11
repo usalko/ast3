@@ -94,9 +94,16 @@ class Task(models.Model):
         return f"[{self.code}] {self.title}"
 
     def generate_code(self) -> str:
-        """Generate sequential code like PRJ-001."""
-        count = Task.objects.filter(project=self.project).count()
-        return f"{self.project.code}-{count + 1:03d}"
+        """Generate sequential code like WEB-001, finding the highest existing number + 1."""
+        import re
+        prefix = self.project.code
+        max_num = 0
+        codes = Task.objects.filter(project=self.project, code__startswith=f"{prefix}-").values_list("code", flat=True)
+        for code in codes:
+            m = re.match(rf"^{re.escape(prefix)}-(\d+)$", code)
+            if m:
+                max_num = max(max_num, int(m.group(1)))
+        return f"{prefix}-{max_num + 1:03d}"
 
 
 class TaskDependency(models.Model):

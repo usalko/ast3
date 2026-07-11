@@ -151,6 +151,12 @@ class CreateCommentInput:
 
 
 @strawberry.input
+class UpdateCommentInput:
+    id: strawberry.ID
+    body: str
+
+
+@strawberry.input
 class CreateTaskInput:
     project_id: strawberry.ID
     title: str
@@ -325,35 +331,46 @@ class TasksMutation:
     def create_comment(self, info: strawberry.types.Info, input: CreateCommentInput) -> CommentType:
         return _run_sync(_create_comment_sync, info, input)
 
+    @strawberry.mutation
+    def update_comment(self, info: strawberry.types.Info, input: UpdateCommentInput) -> CommentType:
+        return _run_sync(_update_comment_sync, info, input)
+
+    @strawberry.mutation
+    def delete_comment(self, info: strawberry.types.Info, id: strawberry.ID) -> bool:
+        return _run_sync(_delete_comment_sync, info, id)
+
 
 def _create_task_sync(info: strawberry.types.Info, input: CreateTaskInput) -> TaskType:
+    from django.db import transaction
     from permissions.helpers import require_project_member
     from audit.models import AuditLog
 
     require_project_member(info, project_id=input.project_id)
-    task = Task(
-        project_id=input.project_id,
-        title=input.title,
-        description=input.description,
-        type=input.type,
-        status_id=input.status_id,
-        priority=input.priority,
-        assignee_id=input.assignee_id,
-        planned_start=input.planned_start,
-        planned_end=input.planned_end,
-        estimated_hours=input.estimated_hours,
-        reporter=info.context.request.user,
-    )
-    task.code = task.generate_code()
-    task.save()
-    AuditLog.log(
-        actor=info.context.request.user,
-        action="task.create",
-        resource_type="task",
-        resource_id=str(task.id),
-        payload={"code": task.code, "project_id": input.project_id},
-        request=info.context.request,
-    )
+
+    with transaction.atomic():
+        task = Task(
+            project_id=input.project_id,
+            title=input.title,
+            description=input.description,
+            type=input.type,
+            status_id=input.status_id,
+            priority=input.priority,
+            assignee_id=input.assignee_id,
+            planned_start=input.planned_start,
+            planned_end=input.planned_end,
+            estimated_hours=input.estimated_hours,
+            reporter=info.context.request.user,
+        )
+        task.code = task.generate_code()
+        task.save()
+        AuditLog.log(
+            actor=info.context.request.user,
+            action="task.create",
+            resource_type="task",
+            resource_id=str(task.id),
+            payload={"code": task.code, "project_id": input.project_id},
+            request=info.context.request,
+        )
     return task  # type: ignore[return-value]
 
 
@@ -449,6 +466,45 @@ def _create_comment_sync(info: strawberry.types.Info, input: CreateCommentInput)
         resource_type="comment",
         resource_id=str(comment.id),
         payload={"task_id": str(input.task_id), "number": comment.number},
+        request=info.context.request,
+    )
+    return comment  # type: ignore[return-value]
+
+
+def _delete_comment_sync(info: strawberry.types.Info, comment_id: strawberry.ID) -> bool:
+    from permissions.helpers import require_project_member
+    from audit.models import AuditLog
+
+    comment = Comment.objects.select_related("task__project").get(pk=comment_id)
+    require_project_member(info, project_id=str(comment.task.project_id))
+    task_id = str(comment.task_id)
+    number = comment.number
+    comment.delete()
+    AuditLog.log(
+        actor=info.context.request.user,
+        action="comment.delete",
+        resource_type="comment",
+        resource_id=str(comment_id),
+        payload={"task_id": task_id, "number": number},
+        request=info.context.request,
+    )
+    return True
+
+
+def _update_comment_sync(info: strawberry.types.Info, input: UpdateCommentInput) -> CommentType:
+    from permissions.helpers import require_project_member
+    from audit.models import AuditLog
+
+    comment = Comment.objects.select_related("task__project").get(pk=input.id)
+    require_project_member(info, project_id=str(comment.task.project_id))
+    comment.body = input.body
+    comment.save(update_fields=["body", "updated_at"])
+    AuditLog.log(
+        actor=info.context.request.user,
+        action="comment.update",
+        resource_type="comment",
+        resource_id=str(comment.id),
+        payload={"task_id": str(comment.task_id), "number": comment.number},
         request=info.context.request,
     )
     return comment  # type: ignore[return-value]

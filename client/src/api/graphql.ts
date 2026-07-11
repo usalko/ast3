@@ -46,7 +46,7 @@ function isUnauthorized(error: unknown) {
   if (Array.isArray(errors)) {
     for (const err of errors) {
       const msg = err.message ?? "";
-      if (/expired|unauthorized|authentication|authenticated|anonymous|not authenticated/i.test(msg)) {
+      if (/expired|unauthorized|authentication|authenticated|anonymous|not authenticated|required/i.test(msg)) {
         return true;
       }
     }

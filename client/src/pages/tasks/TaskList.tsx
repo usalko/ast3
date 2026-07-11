@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
-import { Table, Button, Space, Typography, Tag, Popconfirm, message, Tabs, Modal, Select, Input } from "antd";
+import { Table, Button, Space, Typography, Popconfirm, message, Tabs, Modal, Select, Input, DatePicker } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import { Link } from "react-router-dom";
+import dayjs from "dayjs";
+import type { Dayjs } from "dayjs";
 import { gqlQuery } from "@/api/graphql";
 import { statusLabel } from "@/utils/statusLabels";
 
@@ -23,6 +25,7 @@ type Task = {
 type ProjectOption = { id: string; code?: string; name: string };
 type UserOption = { id: string; firstName: string; roles?: string[] };
 type TaskStatus = { id: string; name: string; code: string };
+type TaskComment = { id: string; authorName: string; body: string; number: number; createdAt: string };
 
 const STATUS_ORDER: Record<string, number> = {
   in_progress: 1,
@@ -50,6 +53,13 @@ export function TaskList() {
   const [newTaskAssigneeId, setNewTaskAssigneeId] = useState<string>("");
   const [creating, setCreating] = useState(false);
 
+  const [commentModalOpen, setCommentModalOpen] = useState(false);
+  const [commentTaskId, setCommentTaskId] = useState<string>("");
+  const [commentDate, setCommentDate] = useState<Dayjs>(dayjs());
+  const [commentText, setCommentText] = useState("");
+  const [savingComment, setSavingComment] = useState(false);
+  const [taskComments, setTaskComments] = useState<Record<string, TaskComment[]>>({});
+
   useEffect(() => {
     setLoading(true);
     gqlQuery<{ tasksAll: Task[] }>(
@@ -60,6 +70,7 @@ export function TaskList() {
           (a, b) => (STATUS_ORDER[a.status?.code] ?? 0) - (STATUS_ORDER[b.status?.code] ?? 0)
         );
         setData(sorted);
+        loadAllComments(sorted);
       })
       .finally(() => setLoading(false));
 
@@ -111,6 +122,46 @@ export function TaskList() {
     }
   }
 
+  async function loadAllComments(tasks: Task[]) {
+    const map: Record<string, TaskComment[]> = {};
+    await Promise.all(
+      tasks.map(async (t) => {
+        try {
+          const res = await gqlQuery<{ taskComments: TaskComment[] }>(
+            `query ($taskId: ID!) { taskComments(taskId: $taskId) { id authorName body number createdAt } }`,
+            { taskId: t.id }
+          );
+          map[t.id] = res.taskComments ?? [];
+        } catch {
+          map[t.id] = [];
+        }
+      })
+    );
+    setTaskComments(map);
+  }
+
+  async function handleSaveComment() {
+    if (!commentText.trim()) return;
+    setSavingComment(true);
+    try {
+      const dateStr = commentDate.format("DD.MM.YYYY HH:mm");
+      await gqlQuery(
+        `mutation ($input: CreateCommentInput!) { createComment(input: $input) { id } }`,
+        { input: { taskId: commentTaskId, body: `${dateStr}              ${commentText.trim()}` } }
+      );
+      message.success("Комментарий добавлен");
+      setCommentModalOpen(false);
+      setCommentText("");
+      loadAllComments(data);
+    } catch (err: any) {
+      const graphqlErrors = err?.response?.errors?.map((e: any) => e.message).join(", ");
+      const detail = graphqlErrors || (err instanceof Error ? err.message : "");
+      message.error(`Не удалось добавить комментарий${detail ? `: ${detail}` : ""}`);
+    } finally {
+      setSavingComment(false);
+    }
+  }
+
   async function handleCreateTask() {
     if (!newTaskTitle.trim() || !newTaskProjectId || !newTaskStatusId) return;
     setCreating(true);
@@ -150,10 +201,12 @@ export function TaskList() {
             (a, b) => (STATUS_ORDER[a.status?.code] ?? 0) - (STATUS_ORDER[b.status?.code] ?? 0)
           );
           setData(sorted);
+          loadAllComments(sorted);
         })
         .finally(() => setLoading(false));
-    } catch (err) {
-      const detail = err instanceof Error ? err.message : "";
+    } catch (err: any) {
+      const graphqlErrors = err?.response?.errors?.map((e: any) => e.message).join(", ");
+      const detail = graphqlErrors || (err instanceof Error ? err.message : "");
       message.error(`Не удалось создать задачу${detail ? `: ${detail}` : ""}`);
     } finally {
       setCreating(false);
@@ -190,6 +243,7 @@ export function TaskList() {
       title: "Название",
       dataIndex: "title",
       key: "title",
+      width: "25%",
       sorter: undefined as unknown,
       render: (v: string, record: Task & { _projectName?: string; _isFirst?: boolean }) => (
          <>
@@ -204,40 +258,52 @@ export function TaskList() {
     },
     {
       title: "Комментарий",
-      dataIndex: "comment",
       key: "comment",
-      width: "20%",
-      ellipsis: true,
-      render: (v?: string) => v || "—",
-    },
-    {
-      title: "Статус",
-      key: "status",
-      render: (_: unknown, record: Task) => (
-        <Tag>{statusLabel(record.status?.code, record.status?.name)}</Tag>
-      ),
+      render: (_: unknown, record: Task & { _projectName?: string; _isFirst?: boolean }) => {
+        const comments = taskComments[record.id] ?? [];
+        if (comments.length === 0) return "—";
+        return (
+          <div style={{ fontSize: 12 }}>
+            {comments.map((c) => (
+              <div key={c.id} style={{ marginBottom: 8, whiteSpace: "pre-wrap" }}>
+                {c.number}-{c.body}
+              </div>
+            ))}
+          </div>
+        );
+      },
     },
     {
       title: "Исполнитель",
       key: "assignee",
+      width: 120,
+      align: "right" as const,
       render: (_: unknown, record: Task) =>
         (record.assignees ?? []).map((a) => a.firstName).join(", ") || "—",
     },
     {
       title: "Действия",
       key: "actions",
+      width: 280,
+      align: "right" as const,
       render: (_: unknown, record: Task) => (
         <Space>
           <Link to={`/tasks/${record.id}/edit`}>
             <Button>Открыть</Button>
           </Link>
+          <Button onClick={() => {
+            setCommentTaskId(record.id);
+            setCommentDate(dayjs());
+            setCommentText("");
+            setCommentModalOpen(true);
+          }}>Добавить комментарий</Button>
           <Popconfirm
             title="Удалить задачу?"
             okText="Удалить"
             cancelText="Отмена"
             onConfirm={() => handleDelete(record.id)}
           >
-            <Button danger size="small">Удалить</Button>
+            <Button size="small">Удалить</Button>
           </Popconfirm>
         </Space>
       ),
@@ -337,6 +403,42 @@ export function TaskList() {
                 label: u.firstName,
                 value: u.id,
               }))}
+            />
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        title="Добавить комментарий"
+        open={commentModalOpen}
+        onOk={handleSaveComment}
+        onCancel={() => {
+          setCommentModalOpen(false);
+          setCommentText("");
+        }}
+        okButtonProps={{ disabled: !commentText.trim(), loading: savingComment }}
+        okText="Сохранить"
+        cancelText="Отмена"
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div>
+            <Text strong>Дата</Text>
+            <DatePicker
+              showTime={{ format: "HH:mm" }}
+              format="DD.MM.YYYY HH:mm"
+              value={commentDate}
+              onChange={(v) => setCommentDate(v ?? dayjs())}
+              style={{ width: "100%", marginTop: 4 }}
+            />
+          </div>
+          <div>
+            <Text strong>Комментарий</Text>
+            <Input.TextArea
+              rows={4}
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              placeholder="Введите текст комментария..."
+              style={{ marginTop: 4 }}
             />
           </div>
         </div>

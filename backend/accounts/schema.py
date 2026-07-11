@@ -4,6 +4,7 @@ from __future__ import annotations
 import strawberry
 import strawberry_django
 from django.contrib.auth import authenticate
+from django.core.exceptions import PermissionDenied
 from rest_framework_simplejwt.tokens import RefreshToken
 from strawberry import auto
 
@@ -261,6 +262,88 @@ class AccountsMutation:
             resource_type="user",
             resource_id=str(user_id),
             payload={"first_name": first_name},
+            request=info.context.request,
+        )
+        return user  # type: ignore[return-value]
+
+    @strawberry.mutation
+    def update_user(
+        self,
+        info: strawberry.types.Info,
+        user_id: strawberry.ID,
+        email: str | None = None,
+        password: str | None = None,
+        first_name: str | None = None,
+        last_name: str | None = None,
+        patronymic: str | None = None,
+        department_id: strawberry.ID | None = None,
+        position: str | None = None,
+        is_active: bool | None = None,
+        is_staff: bool | None = None,
+        is_superuser: bool | None = None,
+        role_codes: list[str] | None = None,
+    ) -> UserType:
+        from audit.models import AuditLog
+        from .models import Department, Role, RoleAssignment
+
+        caller = info.context.request.user
+        if caller.is_anonymous or not caller.is_superuser:
+            raise PermissionDenied("Superuser required")
+
+        user = User.objects.get(pk=user_id)
+        changed = []
+
+        if email is not None and email != user.email:
+            if User.objects.filter(email=email).exclude(pk=user_id).exists():
+                raise Exception("Email already in use")
+            user.email = email
+            changed.append("email")
+        if password is not None:
+            user.set_password(password)
+            changed.append("password")
+        if first_name is not None:
+            user.first_name = first_name
+            changed.append("first_name")
+        if last_name is not None and last_name != "":
+            user.last_name = last_name
+            changed.append("last_name")
+        if patronymic is not None:
+            user.patronymic = patronymic
+            changed.append("patronymic")
+        if position is not None:
+            user.position = position
+            changed.append("position")
+        if is_active is not None:
+            user.is_active = is_active
+            changed.append("is_active")
+        if is_staff is not None:
+            user.is_staff = is_staff
+            changed.append("is_staff")
+        if is_superuser is not None:
+            user.is_superuser = is_superuser
+            changed.append("is_superuser")
+        if department_id is not None:
+            if department_id == "":
+                user.department = None
+            else:
+                user.department = Department.objects.get(pk=department_id)
+            changed.append("department")
+
+        user.save()
+
+        if role_codes is not None:
+            RoleAssignment.objects.filter(user=user, department__isnull=True, project_id__isnull=True).delete()
+            for code in role_codes:
+                role = Role.objects.get(code=code)
+                RoleAssignment.objects.create(user=user, role=role)
+            changed.append("roles")
+
+        AuditLog.log(
+            actor=caller,
+            action="auth.update_user",
+            resource_type="user",
+            resource_id=str(user_id),
+            payload={"changed": changed},
             request=info.context.request,
         )
         return user  # type: ignore[return-value]

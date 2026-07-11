@@ -182,16 +182,6 @@ export function TeamPage() {
         )) || "—",
     },
     {
-      title: "Задачи",
-      key: "tasks",
-      render: (_: unknown, record: User) =>
-        record.tasks && record.tasks.length > 0
-          ? record.tasks.map((t) => (
-              <Tag key={t.id} style={{ marginBottom: 2 }}>{t.title}</Tag>
-            ))
-          : <span style={{ opacity: 0.5 }}>—</span>,
-    },
-    {
       title: "Действия",
       key: "actions",
       width: 200,

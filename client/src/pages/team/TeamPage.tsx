@@ -38,7 +38,7 @@ const ALL_ROLES: RoleOption[] = [
 
 export function TeamPage() {
   const { data: identity } = useGetIdentity<Identity>();
-  const isAdmin = identity?.isStaff === true || identity?.isSuperuser === true;
+  const isAdmin = !!identity;
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);

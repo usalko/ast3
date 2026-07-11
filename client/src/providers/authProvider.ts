@@ -56,15 +56,15 @@ export const authProvider: AuthProvider = {
       const data = await client.request<{ me: { id: string; email: string; fullName: string; isStaff: boolean; isSuperuser: boolean } | null }>(
         `query { me { id email fullName isStaff isSuperuser } }`
       );
-      return data.me ?? null;
+      return data.me ?? { id: "", email: "—", fullName: "—", isStaff: false, isSuperuser: false };
     } catch {
       try {
         const data = await client.request<{ me: { id: string; email: string; fullName: string } | null }>(
           `query { me { id email fullName } }`
         );
-        return data.me ?? null;
+        return data.me ?? { id: "", email: "—", fullName: "—" };
       } catch {
-        return null;
+        return { id: "", email: "—", fullName: "—" };
       }
     }
   },

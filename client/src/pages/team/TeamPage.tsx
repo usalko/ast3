@@ -13,6 +13,8 @@ type User = {
   patronymic?: string | null;
   position?: string | null;
   isActive?: boolean;
+  isStaff?: boolean;
+  isSuperuser?: boolean;
   department?: { id: string; name: string } | null;
   roles?: string[];
   tasks?: TaskInfo[];
@@ -54,7 +56,7 @@ export function TeamPage() {
     setLoading(true);
     try {
       const res = await gqlQuery<{ users: User[] }>(
-        "query { users { id email firstName lastName patronymic position isActive department { id name } roles tasks { id code title statusCode } } }"
+        "query { users { id email firstName lastName patronymic position isActive isStaff isSuperuser department { id name } roles } }"
       );
       const list = res.users ?? [];
       const filtered = list.filter((u) => !(u.roles || []).includes("admin") && u.email !== "admin@test.local");
@@ -122,6 +124,8 @@ export function TeamPage() {
       position: user.position || "",
       departmentId: user.department?.id || null,
       isActive: user.isActive ?? true,
+      isStaff: user.isStaff ?? false,
+      isSuperuser: user.isSuperuser ?? false,
       roleCodes: roles,
     });
     setEditRoleKeys(roles);

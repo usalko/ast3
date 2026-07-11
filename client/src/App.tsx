@@ -50,7 +50,7 @@ export default function App() {
             colorTextSecondary: "#444444",
             colorBorder: "#e0e0e0",
             borderRadius: 6,
-            fontFamily: "'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica Neue', Arial, sans-serif",
+            fontFamily: "'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica Neue', Arial, 'Liberation Sans', 'Noto Sans', sans-serif",
           },
         }}
         locale={ruRU}

@@ -35,7 +35,7 @@
 
 body {
   margin: 0;
-  font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, "Roboto", "Helvetica Neue", Arial, sans-serif;
+  font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, "Roboto", "Helvetica Neue", Arial, "Liberation Sans", "Noto Sans", sans-serif;
   -webkit-font-smoothing: antialiased;
   background: var(--background);
   color: var(--foreground);

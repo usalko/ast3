@@ -5,7 +5,6 @@ import { Link } from "react-router-dom";
 import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
 import { gqlQuery } from "@/api/graphql";
-import { statusLabel } from "@/utils/statusLabels";
 
 const { Text } = Typography;
 
@@ -24,7 +23,6 @@ type Task = {
 
 type ProjectOption = { id: string; code?: string; name: string };
 type UserOption = { id: string; firstName: string; roles?: string[] };
-type TaskStatus = { id: string; name: string; code: string };
 type TaskComment = { id: string; authorName: string; body: string; number: number; createdAt: string };
 
 const STATUS_ORDER: Record<string, number> = {
@@ -46,7 +44,6 @@ export function TaskList() {
   const [modalOpen, setModalOpen] = useState(false);
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [users, setUsers] = useState<UserOption[]>([]);
-  const [statuses, setStatuses] = useState<TaskStatus[]>([]);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskProjectId, setNewTaskProjectId] = useState<string>("");
   const [newTaskStatusId, setNewTaskStatusId] = useState<string>("");
@@ -102,7 +99,6 @@ export function TaskList() {
   async function handleProjectChange(projectId: string) {
     setNewTaskProjectId(projectId);
     if (!projectId) {
-      setStatuses([]);
       setNewTaskStatusId("");
       return;
     }
@@ -111,11 +107,11 @@ export function TaskList() {
         `query ($id: ID!) { project(id: $id) { statuses { id name code } } }`,
         { id: projectId }
       );
-      const filtered = (res.project?.statuses ?? []).filter((s) => s.code !== "backlog");
-      setStatuses(filtered);
-      const todoStatus = filtered.find((s) => s.code === "todo");
+      const todoStatus = (res.project?.statuses ?? []).find((s) => s.code === "todo");
       if (todoStatus) {
         setNewTaskStatusId(todoStatus.id);
+      } else {
+        message.error("У проекта нет статуса «К выполнению»");
       }
     } catch {
       message.error("Не удалось загрузить статусы проекта");
@@ -257,6 +253,23 @@ export function TaskList() {
       ),
     },
     {
+      title: "В работе",
+      key: "in_work",
+      width: 1,
+      render: (_: unknown, record: Task) =>
+        record.status?.code === "in_progress" ? (
+          <span
+            style={{
+              display: "inline-block",
+              width: 10,
+              height: 10,
+              borderRadius: "50%",
+              backgroundColor: "red",
+            }}
+          />
+        ) : null,
+    },
+    {
       title: "Комментарий",
       key: "comment",
       render: (_: unknown, record: Task & { _projectName?: string; _isFirst?: boolean }) => {
@@ -348,7 +361,6 @@ export function TaskList() {
           setNewTaskProjectId("");
           setNewTaskStatusId("");
           setNewTaskAssigneeId("");
-          setStatuses([]);
         }}
         okButtonProps={{ disabled: !newTaskTitle.trim() || !newTaskProjectId || !newTaskStatusId, loading: creating }}
         okText="Создать"
@@ -377,20 +389,7 @@ export function TaskList() {
               }))}
             />
           </div>
-          <div>
-            <Text strong>Статус</Text>
-            <Select
-              style={{ width: "100%", marginTop: 4 }}
-              value={newTaskStatusId || undefined}
-              onChange={(value) => setNewTaskStatusId(value as string)}
-              placeholder="Выберите статус"
-              disabled={!newTaskProjectId}
-              options={statuses.map((s) => ({
-                label: statusLabel(s.code, s.name),
-                value: s.id,
-              }))}
-            />
-          </div>
+
           <div>
             <Text strong>Исполнитель</Text>
             <Select

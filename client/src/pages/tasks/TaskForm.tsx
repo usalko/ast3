@@ -170,7 +170,7 @@ export function TaskForm() {
       }
 
       message.success(id ? "Задача обновлена" : "Задача создана");
-      navigate(`/projects/${projectId}`);
+      navigate("/tasks");
     } catch (err: any) {
       const graphqlErrors = err?.response?.errors?.map((e: any) => e.message).join(", ");
       const detail = graphqlErrors || (err instanceof Error ? err.message : "");

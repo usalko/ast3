@@ -253,9 +253,9 @@ export function TaskList() {
       ),
     },
     {
-      title: "В работе",
+      title: "",
       key: "in_work",
-      width: 1,
+      width: 22,
       render: (_: unknown, record: Task) =>
         record.status?.code === "in_progress" ? (
           <span

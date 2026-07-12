@@ -1,0 +1,4 @@
+services:
+  backup:
+    volumes:
+      - /opt/backups/ast3:/backups/ast3

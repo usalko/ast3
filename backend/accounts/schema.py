@@ -99,7 +99,7 @@ class AccountsQuery:
 
     @strawberry_django.field
     def users(self) -> list[UserType]:
-        return User.objects.filter(is_active=True).select_related("department")
+        return User.objects.all().select_related("department")
 
     @strawberry_django.field
     def departments(self) -> list[DepartmentType]:

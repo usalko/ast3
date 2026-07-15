@@ -257,7 +257,7 @@ export function TaskList() {
       title: "Название",
       dataIndex: "title",
       key: "title",
-      width: "25%",
+      width: "30%",
       sorter: undefined as unknown,
       render: (v: string, record: Task & { _projectName?: string; _isFirst?: boolean }) => (
          <>
@@ -363,6 +363,13 @@ export function TaskList() {
       render: (v: string, record: Task) => (
         <Link to={`/tasks/${record.id}/edit`}><Text strong>{v}</Text></Link>
       ),
+    },
+    {
+      title: "Проект",
+      key: "project",
+      width: 100,
+      render: (_: unknown, record: Task) =>
+        record.project?.code || record.project?.name || "—",
     },
     {
       title: "Комментарий",

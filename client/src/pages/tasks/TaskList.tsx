@@ -16,6 +16,7 @@ type Task = {
   progress?: number | null;
   priority?: number;
   comment?: string;
+  createdAt?: string;
   status: { name: string; code: string; order?: number };
   assignees?: { firstName?: string | null }[] | null;
   project?: { id: string; code: string; name: string } | null;
@@ -35,6 +36,14 @@ const STATUS_ORDER: Record<string, number> = {
 
 const ACTIVE_CODES = new Set(["todo", "in_progress"]);
 const COMPLETED_CODES = new Set(["done", "cancelled"]);
+
+const formatCommentBody = (body: string): string => {
+  const match = body.match(/^(\d{2}\.\d{2})\.\d{4}\s/);
+  if (match) {
+    return body.replace(/^\d{2}\.\d{2}\.\d{4}/, match[1]);
+  }
+  return body;
+};
 
 export function TaskList() {
   const [data, setData] = useState<Task[]>([]);
@@ -60,7 +69,7 @@ export function TaskList() {
   useEffect(() => {
     setLoading(true);
     gqlQuery<{ tasksAll: Task[] }>(
-        `query { tasksAll { id code title type progress priority comment status { name code order } assignees { firstName } project { id code name } } }`
+        `query { tasksAll { id code title type progress priority comment createdAt status { name code order } assignees { firstName } project { id code name } } }`
     )
       .then((res) => {
         const sorted = (res.tasksAll ?? []).sort(
@@ -190,7 +199,7 @@ export function TaskList() {
 
       setLoading(true);
       gqlQuery<{ tasksAll: Task[] }>(
-      `query { tasksAll { id code title type progress priority comment status { name code order } assignees { firstName } project { id code name } } }`
+      `query { tasksAll { id code title type progress priority comment createdAt status { name code order } assignees { firstName } project { id code name } } }`
       )
         .then((res) => {
           const sorted = (res.tasksAll ?? []).sort(
@@ -209,11 +218,9 @@ export function TaskList() {
     }
   }
 
-  const filteredData = data.filter((t) =>
-    tab === "active" ? ACTIVE_CODES.has(t.status?.code) : COMPLETED_CODES.has(t.status?.code)
-  );
+  const filteredActive = data.filter((t) => ACTIVE_CODES.has(t.status?.code));
 
-  const groupedByProject = filteredData.reduce<Record<string, { project: { id: string; code: string; name: string }; tasks: Task[] }>>((acc, task) => {
+  const groupedActive = filteredActive.reduce<Record<string, { project: { id: string; code: string; name: string }; tasks: Task[] }>>((acc, task) => {
     const p = task.project;
     const key = p?.id ?? "__none__";
     if (!acc[key]) {
@@ -226,15 +233,26 @@ export function TaskList() {
     return acc;
   }, {});
 
-  const projectGroups = Object.values(groupedByProject).sort((a, b) =>
+  const activeProjectGroups = Object.values(groupedActive).sort((a, b) =>
     a.project.name.localeCompare(b.project.name)
   );
 
-  const projectFlatData = projectGroups.flatMap((g) =>
+  const activeFlatData = activeProjectGroups.flatMap((g) =>
     g.tasks.map((t, i) => ({ ...t, _projectName: g.project.code ? `[${g.project.code}] ${g.project.name}` : g.project.name, _isFirst: i === 0 }))
   );
 
-  const baseColumns = [
+  const filteredCompleted = data.filter((t) => COMPLETED_CODES.has(t.status?.code));
+
+  const completedSorted = [...filteredCompleted].sort((a, b) =>
+    (b.createdAt || "").localeCompare(a.createdAt || "")
+  );
+
+  const completedFlatData = completedSorted.map((t, i) => ({
+    ...t,
+    _rowNum: i + 1,
+  }));
+
+  const activeColumns = [
     {
       title: "Название",
       dataIndex: "title",
@@ -279,7 +297,7 @@ export function TaskList() {
           <div style={{ fontSize: 12 }}>
             {comments.map((c) => (
               <div key={c.id} style={{ marginBottom: 8, whiteSpace: "pre-wrap" }}>
-                {c.number}-{c.body}
+                {c.number}. {formatCommentBody(c.body)}
               </div>
             ))}
           </div>
@@ -323,6 +341,58 @@ export function TaskList() {
     },
   ];
 
+  const completedColumns = [
+    {
+      title: "№",
+      key: "rowNum",
+      width: 50,
+      render: (_: unknown, record: Task & { _rowNum?: number }) =>
+        <Text type="secondary">{record._rowNum}</Text>,
+    },
+    {
+      title: "Дата",
+      dataIndex: "createdAt",
+      key: "createdAt",
+      width: 120,
+      render: (v: string) => v ? dayjs(v).format("DD.MM.YYYY") : "—",
+    },
+    {
+      title: "Задача",
+      dataIndex: "title",
+      key: "title",
+      render: (v: string, record: Task) => (
+        <Link to={`/tasks/${record.id}/edit`}><Text strong>{v}</Text></Link>
+      ),
+    },
+    {
+      title: "Комментарий",
+      key: "comment",
+      render: (_: unknown, record: Task) => {
+        const comments = taskComments[record.id] ?? [];
+        if (comments.length === 0) return "—";
+        return (
+          <div style={{ fontSize: 12 }}>
+            {comments.map((c) => (
+              <div key={c.id} style={{ marginBottom: 8, whiteSpace: "pre-wrap" }}>
+                {c.number}. {formatCommentBody(c.body)}
+              </div>
+            ))}
+          </div>
+        );
+      },
+    },
+    {
+      title: "",
+      key: "actions",
+      width: 80,
+      render: (_: unknown, record: Task) => (
+        <Link to={`/tasks/${record.id}/edit`}>
+          <Button size="small">Открыть</Button>
+        </Link>
+      ),
+    },
+  ];
+
   return (
     <div style={{ padding: 16, maxWidth: "100%", overflow: "hidden" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
@@ -336,18 +406,27 @@ export function TaskList() {
       </div>
       {loading ? (
         <Text type="secondary">Загрузка...</Text>
-      ) : (
+      ) : tab === "active" ? (
         <Table<Task & { _projectName?: string; _isFirst?: boolean }>
           rowKey="id"
-          dataSource={projectFlatData}
-          columns={baseColumns}
+          dataSource={activeFlatData}
+          columns={activeColumns}
           pagination={false}
           size="small"
           tableLayout="auto"
           rowClassName={(_: Task, index: number) => {
-            if (index > 0 && projectFlatData[index]?._isFirst) return "project-divider";
+            if (index > 0 && activeFlatData[index]?._isFirst) return "project-divider";
             return "";
           }}
+        />
+      ) : (
+        <Table<Task & { _rowNum?: number }>
+          rowKey="id"
+          dataSource={completedFlatData}
+          columns={completedColumns}
+          pagination={false}
+          size="small"
+          tableLayout="auto"
         />
       )}
 

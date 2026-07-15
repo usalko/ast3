@@ -218,6 +218,26 @@ class AccountsMutation:
         return True
 
     @strawberry.mutation
+    def change_password(self, info: strawberry.types.Info, user_id: strawberry.ID, new_password: str) -> UserType:
+        from audit.models import AuditLog
+
+        caller = info.context.request.user
+        if caller.is_anonymous or not caller.is_staff:
+            raise PermissionDenied("Staff or superuser required")
+        user = User.objects.get(pk=user_id)
+        user.set_password(new_password)
+        user.save(update_fields=["password", "updated_at"])
+        AuditLog.log(
+            actor=caller,
+            action="auth.change_password",
+            resource_type="user",
+            resource_id=str(user_id),
+            payload={},
+            request=info.context.request,
+        )
+        return user  # type: ignore[return-value]
+
+    @strawberry.mutation
     def add_employee(self, info: strawberry.types.Info, first_name: str, last_name: str, email: str) -> UserType:
         from audit.models import AuditLog
         from .models import Role, RoleAssignment

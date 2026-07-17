@@ -1,4 +1,5 @@
 import { GraphQLClient } from "graphql-request";
+import { clearAuthStorage } from "@/utils/authTokens";
 
 type GraphQLHeaders = Record<string, string>;
 type GraphQLErrorLike = {
@@ -70,8 +71,7 @@ function deduplicatedRefresh(): Promise<boolean> {
 async function doRefreshAccessToken() {
   const refresh = localStorage.getItem(REFRESH_TOKEN_KEY);
   if (!refresh) {
-    localStorage.removeItem(ACCESS_TOKEN_KEY);
-    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    clearAuthStorage();
     return false;
   }
 
@@ -86,6 +86,7 @@ async function doRefreshAccessToken() {
     );
     const tokens = response.refreshAccessToken;
     if (!tokens?.access) {
+      clearAuthStorage();
       return false;
     }
     localStorage.setItem(ACCESS_TOKEN_KEY, tokens.access);
@@ -94,8 +95,7 @@ async function doRefreshAccessToken() {
     }
     return true;
   } catch {
-    localStorage.removeItem(ACCESS_TOKEN_KEY);
-    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    clearAuthStorage();
     return false;
   }
 }

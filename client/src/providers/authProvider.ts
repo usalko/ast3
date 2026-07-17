@@ -1,13 +1,18 @@
 import type { AuthProvider } from "@refinedev/core";
 import { GraphQLClient } from "graphql-request";
+import { clearAuthStorage, hasValidSessionStorage } from "@/utils/authTokens";
 
 const TOKEN_KEY = "ast3_access";
 const REFRESH_KEY = "ast3_refresh";
+type GraphQLHeaders = Record<string, string>;
 
 const client = new GraphQLClient("/graphql/", {
-  headers: () => {
+  headers: (): GraphQLHeaders => {
     const token = localStorage.getItem(TOKEN_KEY);
-    return token ? { Authorization: `Bearer ${token}` } : {};
+    if (!token) {
+      return {};
+    }
+    return { Authorization: `Bearer ${token}` };
   },
 });
 
@@ -38,14 +43,15 @@ export const authProvider: AuthProvider = {
   },
 
   logout: async () => {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(REFRESH_KEY);
+    clearAuthStorage();
     return { success: true, redirectTo: "/login" };
   },
 
   check: async () => {
-    const token = localStorage.getItem(TOKEN_KEY);
-    if (!token) return { authenticated: false, redirectTo: "/login" };
+    if (!hasValidSessionStorage()) {
+      clearAuthStorage();
+      return { authenticated: false, redirectTo: "/login" };
+    }
     return { authenticated: true };
   },
 

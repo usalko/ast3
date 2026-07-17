@@ -21,13 +21,13 @@ import { AnalyticsPage } from "@/pages/analytics/AnalyticsPage";
 import { TimeTrackingPage } from "@/pages/time-tracking/TimeTrackingPage";
 import { TeamPage } from "@/pages/team/TeamPage";
 import { AppLayout } from "@/components/SiderMenu";
+import { clearAuthStorage, hasValidSessionStorage } from "@/utils/authTokens";
 
-const TOKEN_KEY = "ast3_access";
 const GRAPHQL_URL = import.meta.env.VITE_GRAPHQL_URL ?? "/graphql/";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
-  const token = localStorage.getItem(TOKEN_KEY);
-  if (!token) {
+  if (!hasValidSessionStorage()) {
+    clearAuthStorage();
     return <Navigate to="/login" replace />;
   }
   return <>{children}</>;

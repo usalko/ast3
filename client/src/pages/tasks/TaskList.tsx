@@ -24,7 +24,7 @@ type Task = {
 
 type ProjectOption = { id: string; code?: string; name: string };
 type UserOption = { id: string; firstName: string; roles?: string[] };
-type TaskComment = { id: string; authorName: string; body: string; number: number; createdAt: string };
+type TaskComment = { id: string; taskId: string; authorName: string; body: string; number: number; createdAt: string };
 
 const STATUS_ORDER: Record<string, number> = {
   in_progress: 1,
@@ -66,19 +66,63 @@ export function TaskList() {
   const [savingComment, setSavingComment] = useState(false);
   const [taskComments, setTaskComments] = useState<Record<string, TaskComment[]>>({});
 
-  useEffect(() => {
+  async function loadAllComments(tasks: Task[]) {
+    if (!tasks.length) {
+      setTaskComments({});
+      return;
+    }
+    const taskIds = tasks.map((t) => t.id);
+    const map: Record<string, TaskComment[]> = {};
+    tasks.forEach((t) => {
+      map[t.id] = [];
+    });
+    try {
+      const res = await gqlQuery<{ taskCommentsBulk: TaskComment[] }>(
+        `query ($taskIds: [ID!]!) { taskCommentsBulk(taskIds: $taskIds) { id taskId authorName body number createdAt } }`,
+        { taskIds }
+      );
+      (res.taskCommentsBulk ?? []).forEach((c) => {
+        if (!map[c.taskId]) {
+          map[c.taskId] = [];
+        }
+        map[c.taskId].push(c);
+      });
+    } catch {
+      await Promise.all(
+        tasks.map(async (t) => {
+          try {
+            const res = await gqlQuery<{ taskComments: TaskComment[] }>(
+              `query ($taskId: ID!) { taskComments(taskId: $taskId) { id taskId authorName body number createdAt } }`,
+              { taskId: t.id }
+            );
+            map[t.id] = res.taskComments ?? [];
+          } catch {
+            map[t.id] = [];
+          }
+        })
+      );
+    }
+    setTaskComments(map);
+  }
+
+  async function fetchTasks() {
     setLoading(true);
-    gqlQuery<{ tasksAll: Task[] }>(
+    try {
+      const res = await gqlQuery<{ tasksAll: Task[] }>(
         `query { tasksAll { id code title type progress priority comment createdAt status { name code order } assignees { firstName } project { id code name } } }`
-    )
-      .then((res) => {
-        const sorted = (res.tasksAll ?? []).sort(
-          (a, b) => (STATUS_ORDER[a.status?.code] ?? 0) - (STATUS_ORDER[b.status?.code] ?? 0)
-        );
-        setData(sorted);
-        loadAllComments(sorted);
-      })
-      .finally(() => setLoading(false));
+      );
+      const sorted = (res.tasksAll ?? []).sort(
+        (a, b) => (STATUS_ORDER[a.status?.code] ?? 0) - (STATUS_ORDER[b.status?.code] ?? 0)
+      );
+      setData(sorted);
+      await loadAllComments(sorted);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchTasks();
 
     gqlQuery<{ projects: ProjectOption[] }>("query { projects { id code name } }")
       .then((res) => setProjects(res.projects ?? []))
@@ -127,24 +171,6 @@ export function TaskList() {
     }
   }
 
-  async function loadAllComments(tasks: Task[]) {
-    const map: Record<string, TaskComment[]> = {};
-    await Promise.all(
-      tasks.map(async (t) => {
-        try {
-          const res = await gqlQuery<{ taskComments: TaskComment[] }>(
-            `query ($taskId: ID!) { taskComments(taskId: $taskId) { id authorName body number createdAt } }`,
-            { taskId: t.id }
-          );
-          map[t.id] = res.taskComments ?? [];
-        } catch {
-          map[t.id] = [];
-        }
-      })
-    );
-    setTaskComments(map);
-  }
-
   async function handleSaveComment() {
     if (!commentText.trim()) return;
     setSavingComment(true);
@@ -157,7 +183,7 @@ export function TaskList() {
       message.success("Комментарий добавлен");
       setCommentModalOpen(false);
       setCommentText("");
-      loadAllComments(data);
+      await fetchTasks();
     } catch (err: any) {
       const graphqlErrors = err?.response?.errors?.map((e: any) => e.message).join(", ");
       const detail = graphqlErrors || (err instanceof Error ? err.message : "");
@@ -197,18 +223,7 @@ export function TaskList() {
       setNewTaskAssigneeId("");
       setStatuses([]);
 
-      setLoading(true);
-      gqlQuery<{ tasksAll: Task[] }>(
-      `query { tasksAll { id code title type progress priority comment createdAt status { name code order } assignees { firstName } project { id code name } } }`
-      )
-        .then((res) => {
-          const sorted = (res.tasksAll ?? []).sort(
-            (a, b) => (STATUS_ORDER[a.status?.code] ?? 0) - (STATUS_ORDER[b.status?.code] ?? 0)
-          );
-          setData(sorted);
-          loadAllComments(sorted);
-        })
-        .finally(() => setLoading(false));
+      await fetchTasks();
     } catch (err: any) {
       const graphqlErrors = err?.response?.errors?.map((e: any) => e.message).join(", ");
       const detail = graphqlErrors || (err instanceof Error ? err.message : "");

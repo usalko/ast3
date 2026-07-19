@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 import strawberry
 import strawberry_django
 from strawberry import auto
+from django.db.models import Prefetch
 
 from accounts.schema import UserType
 from projects.models import Project
@@ -46,6 +47,16 @@ class ProjectInfo:
     id: strawberry.ID
     code: str
     name: str
+
+
+@strawberry_django.type(Comment)
+class CommentType:
+    id: auto
+    task_id: auto
+    author_name: auto
+    body: auto
+    number: int
+    created_at: auto
 
 
 @strawberry_django.type(Task)
@@ -133,16 +144,6 @@ class TaskType:
             .select_related("predecessor", "successor")
             .order_by("id")
         )
-
-
-@strawberry_django.type(Comment)
-class CommentType:
-    id: auto
-    author_name: auto
-    body: auto
-    number: int
-    created_at: auto
-
 
 @strawberry.input
 class CreateCommentInput:
@@ -259,6 +260,16 @@ class TasksQuery:
     @strawberry_django.field
     def task_comments(self, task_id: strawberry.ID) -> list[CommentType]:
         return Comment.objects.filter(task_id=task_id, is_deleted=False).order_by("number")
+
+    @strawberry.field
+    def task_comments_bulk(self, task_ids: list[str]) -> list[CommentType]:
+        ids = [int(tid) for tid in task_ids]
+        if not ids:
+            return []
+        return list(
+            Comment.objects.filter(task_id__in=ids, is_deleted=False)
+            .order_by("task_id", "number")
+        )
 
 
 @strawberry.type

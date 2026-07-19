@@ -38,24 +38,26 @@ export async function gqlQuery<T = unknown>(query: string, variables?: Record<st
 function isUnauthorized(error: unknown) {
   const graphQLError = error as GraphQLErrorLike;
   const status = graphQLError.response?.status;
-  
-  // Check HTTP status
-  if (status === 401) return true;
-  
-  // Check GraphQL errors array for auth-related messages
+
+  if (status === 401 || status === 403) return true;
+
+  // Check GraphQL errors array for explicit auth-related messages only.
   const errors = graphQLError.response?.errors;
   if (Array.isArray(errors)) {
     for (const err of errors) {
       const msg = err.message ?? "";
-      if (/expired|unauthorized|authentication|authenticated|anonymous|not authenticated|required/i.test(msg)) {
+      if (isAuthMessage(msg)) {
         return true;
       }
     }
   }
-  
-  // Fallback: check error message
+
   const message = graphQLError.message ?? "";
-  return /expired|unauthorized|authentication|authenticated|anonymous|not authenticated/i.test(message);
+  return isAuthMessage(message);
+}
+
+function isAuthMessage(message: string): boolean {
+  return /(unauthorized|not authenticated|authentication credentials|invalid token|token is invalid|token is expired|expired token|signature has expired)/i.test(message);
 }
 
 function deduplicatedRefresh(): Promise<boolean> {
@@ -94,8 +96,33 @@ async function doRefreshAccessToken() {
       localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refresh);
     }
     return true;
-  } catch {
-    clearAuthStorage();
+  } catch (error) {
+    // Keep session on transient backend/network failures.
+    // Clear only when refresh token is explicitly rejected.
+    if (shouldClearAuthAfterRefreshError(error)) {
+      clearAuthStorage();
+    }
     return false;
   }
+}
+
+function shouldClearAuthAfterRefreshError(error: unknown): boolean {
+  const graphQLError = error as GraphQLErrorLike;
+  const status = graphQLError.response?.status;
+  if (status === 401 || status === 403) {
+    return true;
+  }
+
+  const errors = graphQLError.response?.errors;
+  if (Array.isArray(errors)) {
+    for (const err of errors) {
+      const msg = err.message ?? "";
+      if (/(invalid token|token is invalid|token is expired|expired token|signature has expired|blacklisted)/i.test(msg)) {
+        return true;
+      }
+    }
+  }
+
+  const message = graphQLError.message ?? "";
+  return /(invalid token|token is invalid|token is expired|expired token|signature has expired|blacklisted)/i.test(message);
 }

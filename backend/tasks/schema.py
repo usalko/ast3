@@ -49,6 +49,16 @@ class ProjectInfo:
     name: str
 
 
+@strawberry_django.type(Comment)
+class CommentType:
+    id: auto
+    task_id: auto
+    author_name: auto
+    body: auto
+    number: int
+    created_at: auto
+
+
 @strawberry_django.type(Task)
 class TaskType:
     id: auto
@@ -134,23 +144,6 @@ class TaskType:
             .select_related("predecessor", "successor")
             .order_by("id")
         )
-
-    @strawberry.field
-    def comments(self, root: Task) -> list["CommentType"]:
-        prefetched = getattr(root, "_prefetched_objects_cache", {})
-        if "comments" in prefetched:
-            return typing.cast(list[Comment], prefetched["comments"])
-        return list(Comment.objects.filter(task=root, is_deleted=False).order_by("number"))
-
-
-@strawberry_django.type(Comment)
-class CommentType:
-    id: auto
-    author_name: auto
-    body: auto
-    number: int
-    created_at: auto
-
 
 @strawberry.input
 class CreateCommentInput:
@@ -240,16 +233,7 @@ class TasksQuery:
 
     @strawberry_django.field
     def tasks_all(self) -> list[TaskType]:
-        return (
-            Task.objects.all()
-            .select_related("status", "project", "assignee")
-            .prefetch_related(
-                Prefetch(
-                    "comments",
-                    queryset=Comment.objects.filter(is_deleted=False).order_by("number"),
-                )
-            )
-        )
+        return Task.objects.all().select_related("status", "project", "assignee")
 
     @strawberry.field
     def backlog_tasks(self) -> list[BacklogTaskItem]:
@@ -276,6 +260,16 @@ class TasksQuery:
     @strawberry_django.field
     def task_comments(self, task_id: strawberry.ID) -> list[CommentType]:
         return Comment.objects.filter(task_id=task_id, is_deleted=False).order_by("number")
+
+    @strawberry.field
+    def task_comments_bulk(self, task_ids: list[str]) -> list[CommentType]:
+        ids = [int(tid) for tid in task_ids]
+        if not ids:
+            return []
+        return list(
+            Comment.objects.filter(task_id__in=ids, is_deleted=False)
+            .order_by("task_id", "number")
+        )
 
 
 @strawberry.type

@@ -20,6 +20,7 @@ type Task = {
   status: { name: string; code: string; order?: number };
   assignees?: { firstName?: string | null }[] | null;
   project?: { id: string; code: string; name: string } | null;
+  comments?: TaskComment[] | null;
 };
 
 type ProjectOption = { id: string; code?: string; name: string };
@@ -64,21 +65,24 @@ export function TaskList() {
   const [commentDate, setCommentDate] = useState<Dayjs>(dayjs());
   const [commentText, setCommentText] = useState("");
   const [savingComment, setSavingComment] = useState(false);
-  const [taskComments, setTaskComments] = useState<Record<string, TaskComment[]>>({});
+
+  async function fetchTasks() {
+    setLoading(true);
+    try {
+      const res = await gqlQuery<{ tasksAll: Task[] }>(
+        `query { tasksAll { id code title type progress priority comment createdAt status { name code order } assignees { firstName } project { id code name } comments { id authorName body number createdAt } } }`
+      );
+      const sorted = (res.tasksAll ?? []).sort(
+        (a, b) => (STATUS_ORDER[a.status?.code] ?? 0) - (STATUS_ORDER[b.status?.code] ?? 0)
+      );
+      setData(sorted);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    setLoading(true);
-    gqlQuery<{ tasksAll: Task[] }>(
-        `query { tasksAll { id code title type progress priority comment createdAt status { name code order } assignees { firstName } project { id code name } } }`
-    )
-      .then((res) => {
-        const sorted = (res.tasksAll ?? []).sort(
-          (a, b) => (STATUS_ORDER[a.status?.code] ?? 0) - (STATUS_ORDER[b.status?.code] ?? 0)
-        );
-        setData(sorted);
-        loadAllComments(sorted);
-      })
-      .finally(() => setLoading(false));
+    fetchTasks();
 
     gqlQuery<{ projects: ProjectOption[] }>("query { projects { id code name } }")
       .then((res) => setProjects(res.projects ?? []))
@@ -127,24 +131,6 @@ export function TaskList() {
     }
   }
 
-  async function loadAllComments(tasks: Task[]) {
-    const map: Record<string, TaskComment[]> = {};
-    await Promise.all(
-      tasks.map(async (t) => {
-        try {
-          const res = await gqlQuery<{ taskComments: TaskComment[] }>(
-            `query ($taskId: ID!) { taskComments(taskId: $taskId) { id authorName body number createdAt } }`,
-            { taskId: t.id }
-          );
-          map[t.id] = res.taskComments ?? [];
-        } catch {
-          map[t.id] = [];
-        }
-      })
-    );
-    setTaskComments(map);
-  }
-
   async function handleSaveComment() {
     if (!commentText.trim()) return;
     setSavingComment(true);
@@ -157,7 +143,7 @@ export function TaskList() {
       message.success("Комментарий добавлен");
       setCommentModalOpen(false);
       setCommentText("");
-      loadAllComments(data);
+      await fetchTasks();
     } catch (err: any) {
       const graphqlErrors = err?.response?.errors?.map((e: any) => e.message).join(", ");
       const detail = graphqlErrors || (err instanceof Error ? err.message : "");
@@ -197,18 +183,7 @@ export function TaskList() {
       setNewTaskAssigneeId("");
       setStatuses([]);
 
-      setLoading(true);
-      gqlQuery<{ tasksAll: Task[] }>(
-      `query { tasksAll { id code title type progress priority comment createdAt status { name code order } assignees { firstName } project { id code name } } }`
-      )
-        .then((res) => {
-          const sorted = (res.tasksAll ?? []).sort(
-            (a, b) => (STATUS_ORDER[a.status?.code] ?? 0) - (STATUS_ORDER[b.status?.code] ?? 0)
-          );
-          setData(sorted);
-          loadAllComments(sorted);
-        })
-        .finally(() => setLoading(false));
+      await fetchTasks();
     } catch (err: any) {
       const graphqlErrors = err?.response?.errors?.map((e: any) => e.message).join(", ");
       const detail = graphqlErrors || (err instanceof Error ? err.message : "");
@@ -291,7 +266,7 @@ export function TaskList() {
       title: "Комментарий",
       key: "comment",
       render: (_: unknown, record: Task & { _projectName?: string; _isFirst?: boolean }) => {
-        const comments = taskComments[record.id] ?? [];
+        const comments = record.comments ?? [];
         if (comments.length === 0) return "—";
         return (
           <div style={{ fontSize: 12 }}>
@@ -375,7 +350,7 @@ export function TaskList() {
       title: "Комментарий",
       key: "comment",
       render: (_: unknown, record: Task) => {
-        const comments = taskComments[record.id] ?? [];
+        const comments = record.comments ?? [];
         if (comments.length === 0) return "—";
         return (
           <div style={{ fontSize: 12 }}>

@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 import strawberry
 import strawberry_django
 from strawberry import auto
+from django.db.models import Prefetch
 
 from accounts.schema import UserType
 from projects.models import Project
@@ -134,6 +135,13 @@ class TaskType:
             .order_by("id")
         )
 
+    @strawberry.field
+    def comments(self, root: Task) -> list["CommentType"]:
+        prefetched = getattr(root, "_prefetched_objects_cache", {})
+        if "comments" in prefetched:
+            return typing.cast(list[Comment], prefetched["comments"])
+        return list(Comment.objects.filter(task=root, is_deleted=False).order_by("number"))
+
 
 @strawberry_django.type(Comment)
 class CommentType:
@@ -232,7 +240,16 @@ class TasksQuery:
 
     @strawberry_django.field
     def tasks_all(self) -> list[TaskType]:
-        return Task.objects.all().select_related("status", "project", "assignee")
+        return (
+            Task.objects.all()
+            .select_related("status", "project", "assignee")
+            .prefetch_related(
+                Prefetch(
+                    "comments",
+                    queryset=Comment.objects.filter(is_deleted=False).order_by("number"),
+                )
+            )
+        )
 
     @strawberry.field
     def backlog_tasks(self) -> list[BacklogTaskItem]:

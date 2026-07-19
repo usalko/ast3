@@ -221,7 +221,6 @@ export function TaskList() {
       setNewTaskProjectId("");
       setNewTaskStatusId("");
       setNewTaskAssigneeId("");
-      setStatuses([]);
 
       await fetchTasks();
     } catch (err: any) {

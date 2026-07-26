@@ -1,7 +1,7 @@
 <!DOCTYPE html>
-<html lang="ru">
-<head>
-<meta charset="UTF-8">
+<!-- saved from url=(0031)http://192.168.1.11/bapack.html -->
+<html lang="ru"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Калькулятор загрузки</title>
 <style>
@@ -9,13 +9,39 @@
   body { font-size: 1.12em; font-family: 'Segoe UI', Arial, sans-serif; background: #1a1a2e; color: #eee; padding: 20px; min-height: 100vh; }
   h1 { text-align: center; margin-bottom: 24px; color: #b0a090; font-size: 2.1em; }
 
-  .info-bar { background: #16213e; border-radius: 8px; padding: 12px 16px; margin: 20px auto 0; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; max-width: 1150px; font-size: 1.05em; }
+  .info-bar { background: #16213e; border-radius: 8px; padding: 12px 16px; margin: 20px auto 0; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; max-width: 1380px; font-size: 1.05em; }
   .info-bar .total { font-weight: bold; color: #00d2ff; }
   .reset-btn { background: #1a1a2e; border: 1px solid #0f3460; color: #888; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 0.95em; transition: background 0.15s; }
   .reset-btn:hover { background: #0f3460; color: #aaa; }
   .reset-btn:last-of-type { margin-left: auto; }
+  .reset-btn#toggleZeroBtn { margin-left: auto; }
+  .collapsed-zero { display: none; }
 
-  table { width: 100%; max-width: 1150px; margin: 0 auto; border-collapse: collapse; background: #16213e; border-radius: 8px; overflow: hidden; }
+  .report-bar { background: #16213e; border-radius: 8px; padding: 12px 16px; color: #c8d6e5; font-size: 0.95em; line-height: 1.5; }
+  .report-bar .report-label { color: #f0f3f8; font-weight: 600; }
+  .report-bar .report-fit { color: #74a892; }
+  .report-bar .report-nofit { color: #c08585; }
+
+  .bottom-wrap { display: flex; gap: 14px; max-width: 1380px; margin: 14px auto 0; align-items: flex-start; }
+  .bottom-wrap .report-bar { flex: 0.3; margin: 0; min-height: 200px; }
+  .bottom-wrap .veh-table { flex: 0.7; margin: 0; }
+
+  .boxes-wrap { display: flex; gap: 14px; max-width: 1380px; margin: 0 auto; }
+  .boxes-table { flex: 1; table-layout: fixed; }
+  .boxes-table th { padding: 6px 6px; font-size: 0.85em; }
+  .boxes-table td { padding: 4px 6px; font-size: 1.1em; height: 28px; }
+  .boxes-table th:first-child, .boxes-table td:first-child { width: 46%; }
+  .boxes-table th:nth-child(2), .boxes-table td:nth-child(2) { width: 12%; }
+  .boxes-table th:nth-child(3), .boxes-table td:nth-child(3) { width: 12%; }
+  .boxes-table th:nth-child(4), .boxes-table td:nth-child(4) { width: 12%; }
+  .boxes-table th:nth-child(5), .boxes-table td:nth-child(5) { width: 18%; }
+  .boxes-table td input[type="number"] { width: 56px; font-size: 1.1em; padding: 3px 6px; }
+  .boxes-table .qty-btn { width: 24px; height: 24px; font-size: 1.0em; }
+  .boxes-table .add-row input { font-size: 1.1em; padding: 3px 6px; }
+  .boxes-table .add-row input[type="number"] { width: 56px; }
+  .boxes-table .empty-row td { padding: 4px 6px; height: 28px; border-bottom: 1px solid #0f3460; }
+
+  table { width: 100%; max-width: 1380px; margin: 0 auto; border-collapse: collapse; background: #16213e; border-radius: 8px; overflow: hidden; }
   th { background: #0f3460; padding: 10px 14px; text-align: left; font-weight: 600; font-size: 0.95em; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
   td { padding: 5px 14px; border-bottom: 1px solid #0f3460; font-size: 1.0em; vertical-align: middle; }
   th:nth-child(2), th:nth-child(3), th:nth-child(4),
@@ -26,7 +52,7 @@
   tr:hover td { background: rgba(233, 69, 96, 0.12); }
   tr.active td { background: rgba(233, 69, 96, 0.12); }
 
-  td input[type="number"] { background: #1a1a2e; border: 1px solid #0f3460; color: #eee; padding: 4px 8px; border-radius: 5px; width: 66px; text-align: center; font-size: 1.05em; -moz-appearance: textfield; }
+  td input[type="number"] { background: #1a1a2e; border: 1px solid #0f3460; color: #eee; padding: 4px 8px; border-radius: 5px; width: 66px; text-align: center; font-size: 1.05em; appearance: textfield; -moz-appearance: textfield; }
   td input[type="number"]::-webkit-outer-spin-button,
   td input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   td input[type="number"]:focus { outline: none; border-color: #e94560; }
@@ -37,25 +63,74 @@
 
   td input.custom-dim { width: 82px; margin-right: 2px; font-size: 0.85em; }
 
-  .veh-table { margin-top: 30px; }
-  .veh-table td { padding: 8px 14px; }
-  .group-hdr { background: #16213e; padding: 4px 8px; text-align: center; font-weight: 600; font-size: 0.72em; color: #9ab0c0; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
+  .veh-table { table-layout: fixed; }
+  .veh-table td { padding: 5px 6px; font-size: 1.0em; }
+  .veh-table th { padding: 7px 6px; font-size: 0.8em; }
+  .veh-table thead th { white-space: normal; line-height: 1.15; word-break: break-word; }
+  .group-hdr { background: #16213e; padding: 4px 6px; text-align: center; font-weight: 600; font-size: 0.6em; color: #9ab0c0; text-transform: uppercase; letter-spacing: 0.35px; white-space: nowrap; line-height: 1.15; }
 
-  .veh-table .status-col { width: 52px; text-align: center; }
+  .veh-table th:first-child, .veh-table td:first-child { width: 18%; }
+  .veh-table th:nth-child(2), .veh-table td:nth-child(2) { width: 13%; }
+  .veh-table th:nth-child(3), .veh-table td:nth-child(3) { width: 13%; }
+  .veh-table th:nth-child(4), .veh-table td:nth-child(4) { width: 13%; }
+  .veh-table th:nth-child(5), .veh-table td:nth-child(5) { width: 11%; }
+  .veh-table .status-col { width: 76px; text-align: center; }
+  .veh-table .note-col { width: 20%; min-width: 0; text-align: left; color: #c8d6e5; font-size: 0.8em; }
 
   .status { display: inline-block; width: 16px; height: 16px; border-radius: 50%; transition: background 0.2s; flex-shrink: 0; }
   .status.ok { background: #2ecc71; box-shadow: 0 0 8px rgba(46, 204, 113, 0.5); }
   .status.fail { background: #e74c3c; box-shadow: 0 0 8px rgba(231, 76, 60, 0.5); }
   .status.none { background: #555; }
 
+  .preview-panel { background: #16213e; border-radius: 8px; padding: 16px; margin: 16px auto 0; max-width: 1380px; }
+  .preview-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .preview-title h2 { font-size: 1.08em; color: #f0f3f8; font-weight: 600; }
+  .preview-veh-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+  .veh-btn { background: #1a1a2e; border: 1px solid #0f3460; color: #c8d6e5; padding: 7px 16px; border-radius: 6px; cursor: pointer; font-size: 0.92em; transition: background 0.15s, border-color 0.15s, color 0.15s; }
+  .veh-btn:hover { background: #0f3460; color: #f0f3f8; }
+  .veh-btn.active { background: #e94560; border-color: #e94560; color: #fff; }
+  .veh-btn.fit { background: #1e3a28; border-color: #2d6a4f; color: #74a892; }
+  .veh-btn.fit:hover { background: #2d5a3f; color: #8ec0a8; }
+  .veh-btn.fit.active { background: #2d6a4f; border-color: #2d6a4f; color: #d0e8db; }
+  .veh-btn.nofit { background: #3a1e1e; border-color: #8b3a3a; color: #c08585; }
+  .veh-btn.nofit:hover { background: #5a2d2d; color: #d0a0a0; }
+  .veh-btn.nofit.active { background: #8b3a3a; border-color: #8b3a3a; color: #f0d8d8; }
+  .preview-empty { color: #9ab0c0; font-size: 0.95em; }
+  .preview-3d-wrap { display: grid; grid-template-columns: minmax(320px, 2.8fr) minmax(200px, 1fr); gap: 14px; margin-bottom: 14px; }
+  .preview-3d-card { background: #1a1a2e; border: 1px solid #0f3460; border-radius: 8px; padding: 10px; min-height: 320px; }
+  .preview-3d-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .preview-3d-toolbar h3 { font-size: 0.95em; color: #f0f3f8; }
+  .preview-3d-toolbar p { color: #9ab0c0; font-size: 0.82em; }
+  .preview-3d-actions { display: flex; gap: 8px; }
+  .preview-3d-canvas { width: 100%; height: 420px; display: block; border-radius: 6px; border: 1px solid #0f3460; background: radial-gradient(circle at 50% 18%, rgba(20,58,92,0.95), rgba(8,16,34,0.96)); cursor: grab; }
+  .preview-3d-canvas.dragging { cursor: grabbing; }
+  .preview-3d-hint { color: #9ab0c0; font-size: 0.82em; margin-top: 8px; }
+  .preview-3d-stats { display: grid; gap: 10px; }
+  .stat-card { background: rgba(15,52,96,0.26); border: 1px solid rgba(15,52,96,0.9); border-radius: 8px; padding: 10px; }
+  .stat-card strong { display: block; color: #f0f3f8; font-size: 0.86em; margin-bottom: 4px; }
+  .stat-card span { color: #c8d6e5; font-size: 0.94em; }
+  .stat-card.stat-note span { color: #00d2ff; font-size: 0.88em; line-height: 1.35; }
+  .stat-card.stat-fail span { color: #e78a80; }
+  .preview-layers { display: none; }
+  .legend-chip { display: inline-flex; align-items: center; gap: 6px; background: rgba(15,52,96,0.4); border-radius: 999px; padding: 4px 8px; }
+  .legend-color { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+  @media (max-width: 900px) {
+    .preview-3d-wrap { grid-template-columns: 1fr; }
+    .preview-3d-canvas { height: 300px; }
+  }
+
+  .hidden-mode { display: none; }
+
   .add-row td { padding: 5px 14px; border-top: 1px solid #0f3460; }
+  .veh-table .add-row td:first-child { padding-left: 6px; }
   .add-row input { background: #1a1a2e; border: 1px solid #0f3460; color: #eee; padding: 4px 8px; border-radius: 5px; font-size: 1.05em; }
-  .add-row input[type="number"] { width: 66px; text-align: center; -moz-appearance: textfield; }
+  .add-row input[type="number"] { width: 66px; text-align: center; appearance: textfield; -moz-appearance: textfield; }
   .add-row input[type="number"]::-webkit-outer-spin-button,
   .add-row input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .add-row input:focus { outline: none; border-color: #e94560; }
   .add-row #customName { width: auto; text-align: left; min-width: 100px; }
-  .veh-table #vehCustomName { width: auto; text-align: left; min-width: 180px; }
+  .veh-table #vehCustomName { width: auto; text-align: left; min-width: 120px; max-width: 140px; }
   .add-btn { background: #1a1a2e; border: 1px solid #0f3460; color: #888; padding: 4px 16px; border-radius: 6px; cursor: pointer; font-size: 0.95em; transition: background 0.15s; white-space: nowrap; }
   .add-btn:hover { background: #0f3460; color: #aaa; }
   .inline-del-btn { background: none; border: 1px solid #0f3460; color: #888; width: 20px; height: 20px; border-radius: 4px; cursor: pointer; font-size: 1em; line-height: 1; padding: 0; display: inline-flex; align-items: center; justify-content: center; transition: background 0.15s; flex-shrink: 0; }
@@ -66,36 +141,75 @@
 
 <h1>Расчёт загрузки коробок в машину</h1>
 
-<table>
-  <thead>
-    <tr><th>Наименование</th><th>Ширина (мм)</th><th>Длина (мм)</th><th>Высота (мм)</th><th style="text-align:center;padding-right:62px;">Кол-во</th></tr>
-  </thead>
-  <tbody id="boxesBody"></tbody>
-  <tfoot>
-    <tr class="add-row">
-      <td><input type="text" id="customName" placeholder="Название"></td>
-      <td><input type="number" id="customW" placeholder="мм" min="0"></td>
-      <td><input type="number" id="customL" placeholder="мм" min="0"></td>
-      <td><input type="number" id="customH" placeholder="мм" min="0"></td>
-      <td style="text-align:center;"><button class="add-btn" id="addCustomBtn" style="margin-left:-32px;">+ Добавить</button></td>
-    </tr>
-  </tfoot>
-</table>
+<div class="boxes-wrap">
+  <table class="boxes-table">
+    <thead>
+      <tr><th>Наименование</th><th>Ширина</th><th>Длина</th><th>Высота</th><th style="text-align:center;padding-right:62px;">Кол-во</th></tr>
+    </thead>
+    <tbody id="boxesBodyLeft" class="boxes-body"></tbody>
+  </table>
+  <table class="boxes-table">
+    <thead>
+      <tr><th>Наименование</th><th>Ширина</th><th>Длина</th><th>Высота</th><th style="text-align:center;padding-right:62px;">Кол-во</th></tr>
+    </thead>
+    <tbody id="boxesBodyRight" class="boxes-body"></tbody>
+    <tfoot>
+      <tr class="add-row">
+        <td><input type="text" id="customName" placeholder="Название"></td>
+        <td><input type="number" id="customW" placeholder="мм" min="0"></td>
+        <td><input type="number" id="customL" placeholder="мм" min="0"></td>
+        <td><input type="number" id="customH" placeholder="мм" min="0"></td>
+        <td style="text-align:center;"><button class="add-btn" id="addCustomBtn" style="margin-left:-32px;">+ Добавить</button></td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
 
 <div class="info-bar">
-  <span>Суммарный объём коробок: <span class="total" id="totalBoxVol">0.00 м³</span></span>
-  <span>Общее количество: <span class="total" id="totalBoxQty">0</span></span>
+  <span>Суммарный объём коробок: <span class="total" id="totalBoxVol">1.7306 м³</span></span>
+  <button class="reset-btn" id="toggleZeroBtn">Свернуть список коробок</button>
   <button class="reset-btn" id="resetBtn">Сброс кол-ва коробок</button>
 </div>
 
-<table class="veh-table">
-  <thead>
-    <tr>
-      <th>Машина</th><th>Ширина (мм)</th><th>Длина (мм)</th><th>Высота (мм)</th><th>Объём (м³)</th>
-      <th class="group-hdr status-col">Обычная</th><th class="group-hdr status-col">Идеальная</th>
-    </tr>
-  </thead>
-  <tbody id="vehBody"></tbody>
+<div class="preview-panel">
+  <div class="preview-title">
+    <h2>Схема раскладки</h2>
+    <div class="preview-veh-buttons" id="previewVehicleButtons"></div>
+  </div>
+  <div class="preview-3d-wrap">
+    <div class="preview-3d-card">
+      <div class="preview-3d-toolbar">
+        <div>
+          <h3>3D-вид кузова</h3>
+          <p>Тяните мышью для вращения, колесо мыши меняет масштаб.</p>
+        </div>
+        <div class="preview-3d-actions">
+          <button class="reset-btn" id="reset3dBtn">Сбросить вид</button>
+        </div>
+      </div>
+      <canvas id="preview3dCanvas" class="preview-3d-canvas" width="820" height="420"></canvas>
+      <div class="preview-3d-hint" id="preview3dHint">3D-схема появится, когда для машины найдётся раскладка.</div>
+    </div>
+    <div class="preview-3d-stats" id="preview3dStats">
+      <div class="stat-card"><strong>Информация</strong><span>—</span></div>
+    </div>
+  </div>
+  <div class="preview-empty" id="previewEmpty">Пока нет данных для визуализации.</div>
+  <div class="preview-layers" id="previewLayers"></div>
+</div>
+
+<div class="bottom-wrap">
+  <div class="report-bar" id="reportBar"></div>
+
+  <table class="veh-table">
+    <thead>
+      <tr>
+        <th>Машина</th><th>Ширина</th><th>Длина</th><th>Высота</th><th>Объём (м³)</th>
+        <th class="group-hdr status-col">Проверка</th>
+        <th class="group-hdr note-col">Пояснение</th>
+      </tr>
+    </thead>
+  <tbody id="vehBody"><tr class="veh-row" data-i="0"><td>Аврора</td><td>2500</td><td>1800</td><td>1450</td><td>6.53</td><td class="status-col"><div class="status ok"></div></td><td class="note-col">Нет выбранных коробок.</td></tr><tr class="veh-row" data-i="1"><td>УАЗ Профи</td><td>2350</td><td>1800</td><td>1500</td><td>6.34</td><td class="status-col"><div class="status ok"></div></td><td class="note-col">Нет выбранных коробок.</td></tr><tr class="veh-row" data-i="2"><td>КаМАЗ 65117</td><td>7750</td><td>2450</td><td>2400</td><td>45.57</td><td class="status-col"><div class="status ok"></div></td><td class="note-col">Нет выбранных коробок.</td></tr><tr class="veh-row" data-i="3"><td>Камаз-Черепаха</td><td>2460</td><td>5400</td><td>1660</td><td>20.78</td><td class="status-col"><div class="status ok"></div></td><td class="note-col">Нет выбранных коробок.</td></tr></tbody>
   <tfoot>
     <tr class="add-row">
       <td><input type="text" id="vehCustomName" placeholder="Название"></td>
@@ -107,9 +221,6 @@
     </tr>
   </tfoot>
 </table>
-
-<div style="text-align: right; font-size: 0.8em; color: #888; margin: 8px auto 0; max-width: 1150px;">
-  Обычная — фиксированная ориентация | Идеальная — с учётом поворотов
 </div>
 
 <script>
@@ -138,6 +249,9 @@
     { name: "НСУ УПЫРЬ",                       l: 790, w: 590, h: 400 },
     { name: "Приемник MC2r4-1",              l: 260, w: 130, h: 180 },
     { name: "Спарки ХТ-60",                  l: 480, w: 480, h: 210 },
+    { name: "Катушка 5.4",                    l: 600, w: 500, h: 315 },
+    { name: "Мавик 4т",                       l: 550, w: 600, h: 300 },
+    { name: "Фильтр 3100 3500",               l: 40,  w: 70,  h: 20  },
   ];
 
   var vehicles = [
@@ -155,6 +269,17 @@
   var customVehicles = [];
   var customBoxQtys = {};
   var customVehQtys = {};
+  var hideZeroBoxRows = false;
+  var selectedPreviewVehicleKey = '';
+  var viewer3dState = {
+    yaw: -1.35,
+    pitch: 0.25,
+    zoom: 0.65,
+    dragging: false,
+    lastX: 0,
+    lastY: 0,
+    model: null,
+  };
 
   // ─── Утилиты ────────────────────────────────────────────────────────────────
 
@@ -170,94 +295,1078 @@
     ];
   }
 
-  // ─── Ключевая функция ────────────────────────────────────────────────────────
-  //
-  // Для ОДНОГО типа коробки: сколько штук влезает в кузов при лучшей ориентации.
-  // Считаем честно: floor(BinL/dl) * floor(BinW/dw) * floor(BinH/dh)
-  //
-  function maxBoxesInBin(bl, bw, bh, BinL, BinW, BinH, allowRot) {
-    var best = 0;
-    var oris = orientations(bl, bw, bh, allowRot);
+  function uniqueOrientations(l, w, h, allowRot) {
+    var seen = Object.create(null);
+    var result = [];
+    var oris = orientations(l, w, h, allowRot);
     for (var i = 0; i < oris.length; i++) {
-      var dl = oris[i][0], dw = oris[i][1], dh = oris[i][2];
-      if (dl <= BinL && dw <= BinW && dh <= BinH) {
-        var n = Math.floor(BinL / dl) * Math.floor(BinW / dw) * Math.floor(BinH / dh);
-        if (n > best) best = n;
+      var key = oris[i][0] + 'x' + oris[i][1] + 'x' + oris[i][2];
+      if (seen[key]) continue;
+      seen[key] = true;
+      result.push(oris[i]);
+    }
+    return result;
+  }
+
+  function cloneFreeRects(rects) {
+    var copy = [];
+    for (var i = 0; i < rects.length; i++) {
+      copy.push({ x: rects[i].x, y: rects[i].y, l: rects[i].l, w: rects[i].w });
+    }
+    return copy;
+  }
+
+  function pruneFreeRects(rects) {
+    var pruned = [];
+    for (var i = 0; i < rects.length; i++) {
+      var rect = rects[i];
+      if (rect.l <= 0 || rect.w <= 0) continue;
+      var contained = false;
+      for (var j = 0; j < rects.length; j++) {
+        if (i === j) continue;
+        var other = rects[j];
+        if (
+          rect.x >= other.x && rect.y >= other.y &&
+          rect.x + rect.l <= other.x + other.l &&
+          rect.y + rect.w <= other.y + other.w
+        ) {
+          contained = true;
+          break;
+        }
+      }
+      if (!contained) pruned.push(rect);
+    }
+    return pruned;
+  }
+
+  function placeRectInFreeRects(freeRects, boxL, boxW) {
+    var bestIdx = -1;
+    var bestWaste = Infinity;
+    var bestShortSide = Infinity;
+
+    for (var i = 0; i < freeRects.length; i++) {
+      var rect = freeRects[i];
+      if (boxL > rect.l || boxW > rect.w) continue;
+
+      var waste = rect.l * rect.w - boxL * boxW;
+      var shortSide = Math.min(rect.l - boxL, rect.w - boxW);
+      if (waste < bestWaste || (waste === bestWaste && shortSide < bestShortSide)) {
+        bestIdx = i;
+        bestWaste = waste;
+        bestShortSide = shortSide;
+      }
+    }
+
+    if (bestIdx === -1) return null;
+
+    var target = freeRects[bestIdx];
+    var nextRects = cloneFreeRects(freeRects);
+    nextRects.splice(bestIdx, 1);
+
+    var right = { x: target.x + boxL, y: target.y, l: target.l - boxL, w: boxW };
+    var bottom = { x: target.x, y: target.y + boxW, l: target.l, w: target.w - boxW };
+    var strip = { x: target.x + boxL, y: target.y + boxW, l: target.l - boxL, w: target.w - boxW };
+
+    if (right.l > 0 && right.w > 0) nextRects.push(right);
+    if (bottom.l > 0 && bottom.w > 0) nextRects.push(bottom);
+    if (strip.l > 0 && strip.w > 0) nextRects.push(strip);
+
+    return {
+      freeRects: pruneFreeRects(nextRects),
+      waste: bestWaste,
+      shortSide: bestShortSide,
+      placedRect: { x: target.x, y: target.y, l: boxL, w: boxW },
+    };
+  }
+
+  function buildZoneStates(zones, isStrict) {
+    var states = [];
+    for (var i = 0; i < zones.length; i++) {
+      var zone = zones[i];
+      var scale = isStrict ? 0.98 : 1;
+      states.push({
+        l: zone.l * scale,
+        w: zone.w * scale,
+        h: zone.h * scale,
+        usedHeight: 0,
+        zoneIndex: i,
+        layers: [],
+      });
+    }
+    return states;
+  }
+
+  function packIntoFreeRects(freeRects, boxL, boxW, limit) {
+    var rects = cloneFreeRects(freeRects);
+    var count = 0;
+    var placements = [];
+
+    while (count < limit) {
+      var placed = placeRectInFreeRects(rects, boxL, boxW);
+      if (!placed) break;
+      rects = placed.freeRects;
+      placements.push(placed.placedRect);
+      count += 1;
+    }
+
+    return {
+      count: count,
+      freeRects: rects,
+      placements: placements,
+    };
+  }
+
+  function boxLabel(item) {
+    return item.name || (item.l + '×' + item.w + '×' + item.h);
+  }
+
+  function boxColor(label) {
+    var hash = 0;
+    for (var i = 0; i < label.length; i++) {
+      hash = ((hash << 5) - hash) + label.charCodeAt(i);
+      hash |= 0;
+    }
+    var hue = Math.abs(hash) % 360;
+    return 'hsl(' + hue + ', 72%, 58%)';
+  }
+
+  function overflowColor() {
+    return 'hsl(4, 78%, 58%)';
+  }
+
+  // ─── Послойная упаковка (снизу вверх) ──────────────────────────────────────────
+  //
+  // В отличие от старого подхода (по типам коробок), здесь мы заполняем слои
+  // снизу вверх: каждый слой забиваем максимально всеми типами коробок, и только
+  // когда слой больше ничего не принимает — открываем следующий сверху.
+  // Так нижние слои получаются плотными, а пустоты остаются наверху — как в жизни.
+  //
+
+  function findBestInLayer(layer, remaining, allowRot) {
+    var best = null;
+    for (var ii = 0; ii < remaining.length; ii++) {
+      if (remaining[ii].qty <= 0) continue;
+      var item = remaining[ii];
+      var oris = uniqueOrientations(item.l, item.w, item.h, allowRot);
+      var label = boxLabel(item);
+      var color = boxColor(label);
+
+      for (var oi = 0; oi < oris.length; oi++) {
+        var dims = oris[oi];
+        if (dims[2] > layer.h) continue;
+        var inLayer = packIntoFreeRects(layer.freeRects, dims[0], dims[1], item.qty);
+        if (inLayer.count <= 0) continue;
+        var filledArea = dims[0] * dims[1] * inLayer.count;
+
+        if (!best || filledArea > best.filledArea) {
+          best = {
+            count: inLayer.count,
+            freeRects: inLayer.freeRects,
+            dims: dims,
+            placements: inLayer.placements,
+            itemIdx: ii,
+            label: label,
+            color: color,
+            filledArea: filledArea,
+          };
+        }
       }
     }
     return best;
   }
 
-  // ─── Последовательная упаковка ────────────────────────────────────────────────
-  //
-  // Размещает группы коробок ОДНУ ЗА ДРУГОЙ.
-  // Для каждой группы проходим по зонам: сначала зона 1, потом зона 2...
-  // В каждой зоне размещаем сколько влезет, вычитаем занятую высоту,
-  // переходим к следующей зоне если ещё остались коробки этой группы.
-  //
-  function canFitAll(items, zones, isStrict) {
-    // Копируем зоны, будем менять их высоту по мере заполнения
-    var zs = [];
-    for (var z = 0; z < zones.length; z++) {
-      var zl = zones[z].l, zw = zones[z].w, zh = zones[z].h;
-      if (isStrict) { zl *= 0.98; zw *= 0.98; zh *= 0.98; }
-      zs.push({ l: zl, w: zw, h: zh });
+  function fillLayerCompletely(layer, remaining, allowRot) {
+    var anyProgress = false;
+    var progress = true;
+    while (progress) {
+      progress = false;
+      var best = findBestInLayer(layer, remaining, allowRot);
+      if (!best) break;
+      layer.placements.push({
+        label: best.label,
+        color: best.color,
+        count: best.count,
+        l: best.dims[0],
+        w: best.dims[1],
+        h: best.dims[2],
+        rectsBefore: cloneFreeRects(layer.freeRects),
+        rectsAfter: cloneFreeRects(best.freeRects),
+        boxes: best.placements,
+      });
+      layer.freeRects = best.freeRects;
+      remaining[best.itemIdx].qty -= best.count;
+      progress = true;
+      anyProgress = true;
+    }
+    return anyProgress;
+  }
+
+  function createNewLayer(zone, remaining, allowRot) {
+    var LAYER_GAP = 0.03; // 3% от высоты коробки — зазор между рядами
+    var gap = zone.layers.length > 0 ? LAYER_GAP : 0;
+    var remainingHeight = zone.h - zone.usedHeight - gap * (zone.layers.length > 0 ? 1 : 0);
+    // Учитываем зазор: для каждого нового слоя (кроме первого) нужен gap
+    // но gap зависит от высоты коробки, поэтому проверяем с запасом
+    if (remainingHeight <= 0) return null;
+    var best = null;
+
+    for (var ii = 0; ii < remaining.length; ii++) {
+      if (remaining[ii].qty <= 0) continue;
+      var item = remaining[ii];
+      var oris = uniqueOrientations(item.l, item.w, item.h, allowRot);
+      var label = boxLabel(item);
+      var color = boxColor(item);
+
+      for (var oi = 0; oi < oris.length; oi++) {
+        var dims = oris[oi];
+        var layerGap = zone.layers.length > 0 ? dims[2] * LAYER_GAP : 0;
+        var neededH = dims[2] + layerGap;
+        if (dims[0] > zone.l || dims[1] > zone.w || neededH > (zone.h - zone.usedHeight)) continue;
+        var inNewLayer = packIntoFreeRects([{ x: 0, y: 0, l: zone.l, w: zone.w }], dims[0], dims[1], item.qty);
+        if (inNewLayer.count <= 0) continue;
+        var filledArea = dims[0] * dims[1] * inNewLayer.count;
+
+        if (!best || filledArea > best.filledArea ||
+            (filledArea === best.filledArea && dims[2] < best.layerHeight)) {
+          best = {
+            count: inNewLayer.count,
+            freeRects: inNewLayer.freeRects,
+            dims: dims,
+            placements: inNewLayer.placements,
+            itemIdx: ii,
+            label: label,
+            color: color,
+            filledArea: filledArea,
+            layerHeight: dims[2],
+          };
+        }
+      }
     }
 
+    if (!best) return null;
+
+    return {
+      h: best.layerHeight,
+      freeRects: best.freeRects,
+      placements: [{
+        label: best.label,
+        color: best.color,
+        count: best.count,
+        l: best.dims[0],
+        w: best.dims[1],
+        h: best.dims[2],
+        rectsBefore: [{ x: 0, y: 0, l: zone.l, w: zone.w }],
+        rectsAfter: cloneFreeRects(best.freeRects),
+        boxes: best.placements,
+      }],
+      _firstItemIdx: best.itemIdx,
+      _firstCount: best.count,
+    };
+  }
+
+  function packAllItemsByLayers(items, zoneStates, allowRot) {
+    var remaining = [];
     for (var i = 0; i < items.length; i++) {
-      var it = items[i];
-      var needed = it.qty;
-      var placed = 0;
+      if (items[i].qty > 0) {
+        remaining.push({
+          l: items[i].l, w: items[i].w, h: items[i].h,
+          qty: items[i].qty, name: items[i].name,
+        });
+      }
+    }
 
-      // Пытаемся разместить эту группу во всех доступных зонах
-      for (var z = 0; z < zs.length && placed < needed; z++) {
-        var zone = zs[z];
-        if (zone.h <= 0) continue;
+    var progress = true;
+    while (progress) {
+      progress = false;
 
-        // Находим лучшую ориентацию
-        var bestN = 0;
-        var bestDL = it.l, bestDW = it.w, bestDH = it.h;
-        var oris = orientations(it.l, it.w, it.h, !isStrict);
-        for (var d = 0; d < oris.length; d++) {
-          var dl = oris[d][0], dw = oris[d][1], dh = oris[d][2];
-          if (dl <= zone.l && dw <= zone.w && dh <= zone.h) {
-            var n = Math.floor(zone.l / dl) * Math.floor(zone.w / dw) * Math.floor(zone.h / dh);
-            if (n > bestN) { bestN = n; bestDL = dl; bestDW = dw; bestDH = dh; }
+      for (var zi = 0; zi < zoneStates.length; zi++) {
+        var zone = zoneStates[zi];
+
+        // Phase 1: добиваем существующие слои (снизу вверх)
+        for (var li = 0; li < zone.layers.length; li++) {
+          if (fillLayerCompletely(zone.layers[li], remaining, allowRot)) {
+            progress = true;
           }
         }
 
-        if (bestN === 0) continue;
+        // Phase 2: создаём новые слои, пока есть высота и коробки
+        while (zone.h - zone.usedHeight > 0) {
+          var hasItems = false;
+          for (var r = 0; r < remaining.length; r++) {
+            if (remaining[r].qty > 0) { hasItems = true; break; }
+          }
+          if (!hasItems) break;
 
-        var take = Math.min(bestN, needed - placed);
-        placed += take;
+          var newLayer = createNewLayer(zone, remaining, allowRot);
+          if (!newLayer) break;
 
-        if (i < items.length - 1) {
-          // Это НЕ последняя группа — вычитаем занятую высоту из зоны
-          var perLayer = Math.floor(zone.l / bestDL) * Math.floor(zone.w / bestDW);
-          var layersNeeded = Math.ceil(take / perLayer);
-          zone.h -= layersNeeded * bestDH;
-          if (zone.h < 0) zone.h = 0;
+          zone.layers.push(newLayer);
+          var layerGap = zone.layers.length > 1 ? newLayer.h * 0.03 : 0;
+          zone.usedHeight += newLayer.h + layerGap;
+          remaining[newLayer._firstItemIdx].qty -= newLayer._firstCount;
+          delete newLayer._firstItemIdx;
+          delete newLayer._firstCount;
+          progress = true;
+
+          // Сразу добиваем новый слой остальными типами
+          fillLayerCompletely(newLayer, remaining, allowRot);
+        }
+      }
+    }
+
+    for (var k = 0; k < remaining.length; k++) {
+      if (remaining[k].qty > 0) return false;
+    }
+    return true;
+  }
+
+  // ─── Последовательная упаковка ────────────────────────────────────────────────
+
+  function canFitAll(items, zones, isStrict) {
+    var zoneStates = buildZoneStates(zones, isStrict);
+    return packAllItemsByLayers(items, zoneStates, !isStrict);
+  }
+
+  function getPackingPlan(items, zones, isStrict) {
+    var zoneStates = buildZoneStates(zones, isStrict);
+    if (packAllItemsByLayers(items, zoneStates, !isStrict)) return zoneStates;
+    return null;
+  }
+
+  function getOverflowPlan(items, zones, isStrict) {
+    var placedItems = [];
+    var plan = buildZoneStates(zones, isStrict);
+
+    for (var i = 0; i < items.length; i++) {
+      var candidate = getPackingPlan(placedItems.concat([items[i]]), zones, isStrict);
+      if (candidate) {
+        placedItems.push(items[i]);
+        plan = candidate;
+      }
+    }
+
+    var topZ = 0;
+    for (var zi = 0; zi < plan.length; zi++) topZ += plan[zi].h;
+    plan.overflow = [];
+
+    for (var pi = 0; pi < items.length; pi++) {
+      if (placedItems.indexOf(items[pi]) !== -1) continue;
+      var item = items[pi];
+      var dims = uniqueOrientations(item.l, item.w, item.h, !isStrict)[0];
+      var itemsPerRow = Math.max(1, Math.floor(plan[0].w / dims[1]));
+      for (var q = 0; q < item.qty; q++) {
+        var row = Math.floor(q / itemsPerRow);
+        var col = q % itemsPerRow;
+        plan.overflow.push({
+          x: col * dims[1],
+          y: 0,
+          z: topZ + row * dims[2],
+          w: dims[1],
+          l: dims[0],
+          h: dims[2],
+          color: overflowColor(),
+          label: boxLabel(item),
+          overflow: true,
+        });
+      }
+    }
+
+    return plan;
+  }
+
+  function cloneItems(items) {
+    var copy = [];
+    for (var i = 0; i < items.length; i++) {
+      copy.push({ l: items[i].l, w: items[i].w, h: items[i].h, qty: items[i].qty });
+    }
+    return copy;
+  }
+
+  function itemVolume(item) {
+    return item.l * item.w * item.h * item.qty;
+  }
+
+  function itemFootprint(item) {
+    return item.l * item.w;
+  }
+
+  function addOrder(orders, seen, items) {
+    var key = items.map(function (it) {
+      return [it.l, it.w, it.h, it.qty].join('x');
+    }).join('|');
+    if (seen[key]) return;
+    seen[key] = true;
+    orders.push(items);
+  }
+
+  function buildAdvancedOrders(items) {
+    var base = cloneItems(items);
+    var orders = [];
+    var seen = Object.create(null);
+
+    addOrder(orders, seen, cloneItems(base));
+    addOrder(orders, seen, cloneItems(base).sort(function (a, b) { return itemVolume(b) - itemVolume(a); }));
+    addOrder(orders, seen, cloneItems(base).sort(function (a, b) { return itemVolume(a) - itemVolume(b); }));
+    addOrder(orders, seen, cloneItems(base).sort(function (a, b) { return Math.max(b.l, b.w, b.h) - Math.max(a.l, a.w, a.h); }));
+    addOrder(orders, seen, cloneItems(base).sort(function (a, b) { return itemFootprint(b) - itemFootprint(a); }));
+    addOrder(orders, seen, cloneItems(base).sort(function (a, b) { return b.qty - a.qty; }));
+
+    if (base.length <= 6) {
+      var used = new Array(base.length).fill(false);
+      var current = [];
+
+      function dfs() {
+        if (current.length === base.length) {
+          addOrder(orders, seen, cloneItems(current));
+          return;
+        }
+        for (var i = 0; i < base.length; i++) {
+          if (used[i]) continue;
+          used[i] = true;
+          current.push(base[i]);
+          dfs();
+          current.pop();
+          used[i] = false;
         }
       }
 
-      if (placed < needed) return false;
+      dfs();
     }
-    return true;
+
+    return orders;
+  }
+
+  function canFitAllAdvanced(items, zones, isStrict) {
+    var orders = buildAdvancedOrders(items);
+    for (var i = 0; i < orders.length; i++) {
+      if (canFitAll(orders[i], zones, isStrict)) return true;
+    }
+    return false;
+  }
+
+  function getAdvancedPackingPlan(items, zones, isStrict) {
+    var orders = buildAdvancedOrders(items);
+    for (var i = 0; i < orders.length; i++) {
+      var plan = getPackingPlan(orders[i], zones, isStrict);
+      if (plan) return plan;
+    }
+    return null;
+  }
+
+  function getVehicleZones(veh) {
+    if (veh.zones) return veh.zones.slice();
+    return [{ l: veh.l, w: veh.w, h: veh.h }];
+  }
+
+  function getVehicleAssessment(items, veh) {
+    var zones = getVehicleZones(veh);
+    var noRot = canFitAll(items, zones, true);
+    var ideal = canFitAll(items, zones, false);
+    var expert = ideal || canFitAllAdvanced(items, zones, false);
+    var finalFit = noRot || expert;
+    var previewPlan = null;
+    var note = 'Не рассчитано';
+
+    if (noRot) {
+      note = 'Помещается';
+      previewPlan = getPackingPlan(items, zones, true);
+    } else if (ideal && expert) {
+      note = 'Помещается, если развернуть коробки';
+      previewPlan = getPackingPlan(items, zones, false);
+    } else if (!ideal && expert) {
+      note = 'Помещается, если плотно уложить с поворотами';
+      previewPlan = getAdvancedPackingPlan(items, zones, false);
+    } else {
+      previewPlan = getOverflowPlan(items, zones, false);
+      var overCount = previewPlan.overflow ? previewPlan.overflow.length : 0;
+      note = 'Не помещается — уберите ' + overCount + ' коробок или возьмите машину больше';
+    }
+
+    return {
+      noRot: noRot,
+      expert: expert,
+      finalFit: finalFit,
+      note: note,
+      previewPlan: previewPlan,
+    };
+  }
+
+  function setStatus(el, value) {
+    el.className = 'status ' + (value === null ? 'none' : (value ? 'ok' : 'fail'));
+  }
+
+  function getProjectedBounds(points) {
+    var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (var i = 0; i < points.length; i++) {
+      minX = Math.min(minX, points[i].x);
+      minY = Math.min(minY, points[i].y);
+      maxX = Math.max(maxX, points[i].x);
+      maxY = Math.max(maxY, points[i].y);
+    }
+    return { minX: minX, minY: minY, maxX: maxX, maxY: maxY, width: maxX - minX, height: maxY - minY };
+  }
+
+  function getFitScale(model, width, height, yaw, pitch) {
+    var center = { x: model.width / 2, y: model.length / 2, z: model.height / 2 };
+    var corners = [
+      { x: 0, y: 0, z: 0 },
+      { x: model.width, y: 0, z: 0 },
+      { x: model.width, y: model.length, z: 0 },
+      { x: 0, y: model.length, z: 0 },
+      { x: 0, y: 0, z: model.height },
+      { x: model.width, y: 0, z: model.height },
+      { x: model.width, y: model.length, z: model.height },
+      { x: 0, y: model.length, z: model.height }
+    ];
+    var projected = [];
+    for (var i = 0; i < corners.length; i++) {
+      projected.push(projectPoint(corners[i], center, 1, yaw, pitch, 0, 0));
+    }
+    var bounds = getProjectedBounds(projected);
+    var padding = 36;
+    var usableWidth = Math.max(1, width - padding * 2);
+    var usableHeight = Math.max(1, height - padding * 2);
+    return Math.min(usableWidth / Math.max(1, bounds.width), usableHeight / Math.max(1, bounds.height));
+  }
+
+  function build3DModel(plan) {
+    if (!plan) return null;
+    var GAP = 0.03; // 3% — зазор между коробками за счёт раздвижения позиций
+    var posScale = 1 + GAP;
+    var boxes3d = [];
+    var maxLength = 0;
+    var maxWidth = 0;
+    var maxHeight = 0;
+    var zones3d = [];
+    var cumulativeZ = 0;
+
+    for (var zi = 0; zi < plan.length; zi++) {
+      var zone = plan[zi];
+      var zBase = cumulativeZ;
+      zones3d.push({ x: 0, y: 0, z: zBase, w: zone.w, l: zone.l, h: zone.h });
+      maxLength = Math.max(maxLength, zone.l);
+      maxWidth = Math.max(maxWidth, zone.w);
+      maxHeight = Math.max(maxHeight, zBase + zone.h);
+
+      // Центр зоны — точка, от которой раздвигаем позиции коробок
+      var centerX = zone.w / 2;
+      var centerY = zone.l / 2;
+
+      var layerBase = zBase;
+      for (var li = 0; li < zone.layers.length; li++) {
+        var layer = zone.layers[li];
+        for (var pi = 0; pi < layer.placements.length; pi++) {
+          var placement = layer.placements[pi];
+          for (var bi = 0; bi < placement.boxes.length; bi++) {
+            var box = placement.boxes[bi];
+            boxes3d.push({
+              x: centerX + (box.y - centerX) * posScale,
+              y: centerY + (box.x - centerY) * posScale,
+              z: layerBase,
+              w: box.w,
+              l: box.l,
+              h: placement.h,
+              color: placement.color,
+              label: placement.label,
+              zone: zi + 1,
+              layer: li + 1,
+            });
+          }
+        }
+        // Зазор между рядами: 3% от высоты слоя
+        var layerGap3d = li > 0 ? layer.h * GAP : 0;
+        layerBase += layer.h + layerGap3d;
+      }
+      cumulativeZ += zone.h;
+    }
+
+    if (plan.overflow) {
+      for (var oi = 0; oi < plan.overflow.length; oi++) {
+        var overflowBox = plan.overflow[oi];
+        boxes3d.push({
+          x: overflowBox.x * posScale,
+          y: overflowBox.y,
+          z: overflowBox.z,
+          w: overflowBox.w,
+          l: overflowBox.l,
+          h: overflowBox.h,
+          color: overflowBox.color,
+          label: overflowBox.label,
+          overflow: true,
+        });
+        maxLength = Math.max(maxLength, overflowBox.y + overflowBox.l);
+        maxWidth = Math.max(maxWidth, overflowBox.x + overflowBox.w);
+        maxHeight = Math.max(maxHeight, overflowBox.z + overflowBox.h);
+      }
+    }
+
+    return {
+      width: maxWidth,
+      length: maxLength,
+      height: maxHeight,
+      boxes: boxes3d,
+      zones: zones3d,
+    };
+  }
+
+  function projectPoint(point, center, scale, yaw, pitch, canvasWidth, canvasHeight) {
+    var x = point.x - center.x;
+    var y = point.y - center.y;
+    var z = point.z - center.z;
+
+    var cosY = Math.cos(yaw);
+    var sinY = Math.sin(yaw);
+    var cosP = Math.cos(pitch);
+    var sinP = Math.sin(pitch);
+
+    var x1 = x * cosY - y * sinY;
+    var y1 = x * sinY + y * cosY;
+    var z1 = z;
+
+    var y2 = y1 * cosP - z1 * sinP;
+    var z2 = y1 * sinP + z1 * cosP;
+
+    return {
+      x: canvasWidth / 2 + x1 * scale,
+      y: canvasHeight / 2 + y2 * scale,
+      depth: z2,
+    };
+  }
+
+  function shadeColor(color, factor) {
+    var match = color.match(/hsl\(([-\d.]+),\s*([\d.]+)%.*,\s*([\d.]+)%\)/);
+    if (!match) return color;
+    var hue = parseFloat(match[1]);
+    var sat = parseFloat(match[2]);
+    var light = Math.max(20, Math.min(85, parseFloat(match[3]) * factor));
+    return 'hsl(' + hue + ', ' + sat + '%, ' + light + '%)';
+  }
+
+  function faceLightFactor(normal) {
+    var lightDir = { x: -0.45, y: -0.35, z: 1 };
+    var normalLen = Math.sqrt(normal.x * normal.x + normal.y * normal.y + normal.z * normal.z) || 1;
+    var lightLen = Math.sqrt(lightDir.x * lightDir.x + lightDir.y * lightDir.y + lightDir.z * lightDir.z) || 1;
+    var dot = (normal.x * lightDir.x + normal.y * lightDir.y + normal.z * lightDir.z) / (normalLen * lightLen);
+    return 0.72 + Math.max(0, dot) * 0.42;
+  }
+
+  function draw3DScene() {
+    var canvas = document.getElementById('preview3dCanvas');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    var width = canvas.width;
+    var height = canvas.height;
+    ctx.clearRect(0, 0, width, height);
+
+    var model = viewer3dState.model;
+    if (!model) {
+      ctx.fillStyle = '#9ab0c0';
+      ctx.font = '16px Segoe UI';
+      ctx.textAlign = 'center';
+      ctx.fillText('Нет 3D-данных для отображения', width / 2, height / 2);
+      return;
+    }
+
+    var yaw = viewer3dState.yaw;
+    var pitch = viewer3dState.pitch;
+    var scale = getFitScale(model, width, height, yaw, pitch) * viewer3dState.zoom;
+    var center = { x: model.width / 2, y: model.length / 2, z: model.height / 2 };
+
+    // ── Пол ──
+    var floor = [
+      projectPoint({ x: 0, y: 0, z: 0 }, center, scale, yaw, pitch, width, height),
+      projectPoint({ x: model.width, y: 0, z: 0 }, center, scale, yaw, pitch, width, height),
+      projectPoint({ x: model.width, y: model.length, z: 0 }, center, scale, yaw, pitch, width, height),
+      projectPoint({ x: 0, y: model.length, z: 0 }, center, scale, yaw, pitch, width, height),
+    ];
+    ctx.fillStyle = 'rgba(12, 40, 66, 0.35)';
+    ctx.strokeStyle = 'rgba(113, 173, 215, 0.45)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(floor[0].x, floor[0].y);
+    for (var fi = 1; fi < floor.length; fi++) ctx.lineTo(floor[fi].x, floor[fi].y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // ── Каркасы зон ──
+    if (model.zones) {
+      ctx.strokeStyle = 'rgba(153, 214, 255, 0.78)';
+      ctx.lineWidth = 1.2;
+      for (var zi = 0; zi < model.zones.length; zi++) {
+        var zone = model.zones[zi];
+        var corners = {
+          a: projectPoint({ x: zone.x, y: zone.y, z: zone.z }, center, scale, yaw, pitch, width, height),
+          b: projectPoint({ x: zone.x + zone.w, y: zone.y, z: zone.z }, center, scale, yaw, pitch, width, height),
+          c: projectPoint({ x: zone.x + zone.w, y: zone.y + zone.l, z: zone.z }, center, scale, yaw, pitch, width, height),
+          d: projectPoint({ x: zone.x, y: zone.y + zone.l, z: zone.z }, center, scale, yaw, pitch, width, height),
+          e: projectPoint({ x: zone.x, y: zone.y, z: zone.z + zone.h }, center, scale, yaw, pitch, width, height),
+          f: projectPoint({ x: zone.x + zone.w, y: zone.y, z: zone.z + zone.h }, center, scale, yaw, pitch, width, height),
+          g: projectPoint({ x: zone.x + zone.w, y: zone.y + zone.l, z: zone.z + zone.h }, center, scale, yaw, pitch, width, height),
+          h: projectPoint({ x: zone.x, y: zone.y + zone.l, z: zone.z + zone.h }, center, scale, yaw, pitch, width, height)
+        };
+        var edges = [['a','b'],['b','c'],['c','d'],['d','a'],['e','f'],['f','g'],['g','h'],['h','e'],['a','e'],['b','f'],['c','g'],['d','h']];
+        for (var ei = 0; ei < edges.length; ei++) {
+          ctx.beginPath();
+          ctx.moveTo(corners[edges[ei][0]].x, corners[edges[ei][0]].y);
+          ctx.lineTo(corners[edges[ei][1]].x, corners[edges[ei][1]].y);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // ── Сортировка коробок по глубине центра (дальние → ближние) ──
+    var cosY = Math.cos(yaw), sinY = Math.sin(yaw);
+    var cosP = Math.cos(pitch), sinP = Math.sin(pitch);
+
+    function transformNormalZ(nx, ny, nz) {
+      var nx1 = nx * cosY - ny * sinY;
+      var ny1 = nx * sinY + ny * cosY;
+      var nz1 = nz;
+      var nz2 = ny1 * sinP + nz1 * cosP;
+      return nz2;
+    }
+
+    var boxEntries = [];
+    for (var i = 0; i < model.boxes.length; i++) {
+      var box = model.boxes[i];
+      var cx = box.x + box.w / 2;
+      var cy = box.y + box.l / 2;
+      var cz = box.z + box.h / 2;
+      var proj = projectPoint({ x: cx, y: cy, z: cz }, center, scale, yaw, pitch, width, height);
+      boxEntries.push({ box: box, depth: proj.depth });
+    }
+    boxEntries.sort(function (a, b) { return a.depth - b.depth; });
+
+    // ── Отрисовка коробок: back-to-front, с отсечением нелицевых граней ──
+    // Грани прямоугольного параллелепипеда с внешними нормалями
+    var faceDefs = [
+      { verts: ['e', 'f', 'g', 'h'], normal: { x: 0, y: 0, z: 1 } },   // верх (z+)
+      { verts: ['a', 'b', 'c', 'd'], normal: { x: 0, y: 0, z: -1 } },  // низ (z-)
+      { verts: ['b', 'c', 'g', 'f'], normal: { x: 1, y: 0, z: 0 } },   // правая (x+)
+      { verts: ['a', 'd', 'h', 'e'], normal: { x: -1, y: 0, z: 0 } },  // левая (x-)
+      { verts: ['d', 'c', 'g', 'h'], normal: { x: 0, y: 1, z: 0 } },   // задняя (y+)
+      { verts: ['a', 'b', 'f', 'e'], normal: { x: 0, y: -1, z: 0 } },  // передняя (y-)
+    ];
+
+    for (var j = 0; j < boxEntries.length; j++) {
+      var box = boxEntries[j].box;
+      var x0 = box.x, x1 = box.x + box.w;
+      var y0 = box.y, y1 = box.y + box.l;
+      var z0 = box.z, z1 = box.z + box.h;
+      var pts = {
+        a: { x: x0, y: y0, z: z0 },
+        b: { x: x1, y: y0, z: z0 },
+        c: { x: x1, y: y1, z: z0 },
+        d: { x: x0, y: y1, z: z0 },
+        e: { x: x0, y: y0, z: z1 },
+        f: { x: x1, y: y0, z: z1 },
+        g: { x: x1, y: y1, z: z1 },
+        h: { x: x0, y: y1, z: z1 },
+      };
+
+      var projected = {};
+      for (var key in pts) {
+        projected[key] = projectPoint(pts[key], center, scale, yaw, pitch, width, height);
+      }
+
+      for (var fi = 0; fi < faceDefs.length; fi++) {
+        var fd = faceDefs[fi];
+        var tnz = transformNormalZ(fd.normal.x, fd.normal.y, fd.normal.z);
+        if (tnz <= 0) continue; // грань смотрит от зрителя — не рисуем
+
+        var lightFactor = faceLightFactor(fd.normal);
+        var pface = fd.verts.map(function (k) { return projected[k]; });
+
+        ctx.beginPath();
+        ctx.moveTo(pface[0].x, pface[0].y);
+        for (var p = 1; p < pface.length; p++) ctx.lineTo(pface[p].x, pface[p].y);
+        ctx.closePath();
+        ctx.fillStyle = shadeColor(box.color, lightFactor);
+        ctx.strokeStyle = box.overflow ? 'rgba(255,120,120,0.88)' : 'rgba(8,16,24,0.55)';
+        ctx.fill();
+        ctx.stroke();
+      }
+    }
+  }
+
+  function getVehicleVolumeM3(veh) {
+    if (!veh) return 0;
+    if (veh.zones) {
+      var vol = 0;
+      for (var i = 0; i < veh.zones.length; i++) vol += veh.zones[i].l * veh.zones[i].w * veh.zones[i].h;
+      return mm3ToM3(vol);
+    }
+    return mm3ToM3(veh.l * veh.w * veh.h);
+  }
+
+  function getVehicleDims(veh) {
+    if (!veh) return null;
+    if (veh.zones) {
+      var maxL = 0, maxW = 0, totalH = 0;
+      for (var i = 0; i < veh.zones.length; i++) {
+        maxL = Math.max(maxL, veh.zones[i].l);
+        maxW = Math.max(maxW, veh.zones[i].w);
+        totalH += veh.zones[i].h;
+      }
+      return { w: maxW, l: maxL, h: totalH };
+    }
+    return { w: veh.w, l: veh.l, h: veh.h };
+  }
+
+  function update3dStats(vehicleName, assessment, veh) {
+    var root = document.getElementById('preview3dStats');
+    if (!root) return;
+
+    if (!assessment || !assessment.previewPlan || !veh) {
+      root.innerHTML = '<div class="stat-card"><strong>Информация</strong><span>Выберите коробки и машину</span></div>';
+      return;
+    }
+
+    var model = build3DModel(assessment.previewPlan);
+    var overflowCount = model ? model.boxes.filter(function (b) { return !!b.overflow; }).length : 0;
+    var packedCount = model ? model.boxes.length - overflowCount : 0;
+
+    var plan = assessment.previewPlan;
+
+    // ── Фактически занято — чистая сумма объёмов всех коробок ──
+    // (без учёта зазоров между ними)
+    var boxesVolMm3 = 0;
+    if (model) {
+      for (var i = 0; i < model.boxes.length; i++) {
+        var b = model.boxes[i];
+        boxesVolMm3 += b.w * b.l * b.h;
+      }
+    }
+    var boxesVolM3 = mm3ToM3(boxesVolMm3);
+
+    // ── Реально занятый объём ──
+    // = объём коробок
+    // + зазоры между коробками (2% от объёма коробок)
+    // + неиспользуемое пространство (~12% — упаковка, паллеты,
+    //   пустоты куда не влезут крупные коробки и т.д.)
+    var GAP_PCT = 0.03;       // 3% — раздвижение позиций в 3D
+    var WASTE_PCT = 0.12;     // 12% — упаковка, паллеты, мёртвые зоны
+    var realUsedM3 = boxesVolM3 * (1 + GAP_PCT + WASTE_PCT);
+
+    // Объём машины
+    var vehVolM3 = getVehicleVolumeM3(veh);
+    var remainingM3 = vehVolM3 - realUsedM3;
+    if (remainingM3 < 0) remainingM3 = 0;
+
+    // Размеры машины
+    var dims = getVehicleDims(veh);
+
+    // Использовано высоты
+    var usedHeight = 0;
+    for (var z2 = 0; z2 < plan.length; z2++) {
+      for (var l2 = 0; l2 < plan[z2].layers.length; l2++) {
+        usedHeight += plan[z2].layers[l2].h;
+      }
+    }
+
+    var fillPct = vehVolM3 > 0 ? (realUsedM3 / vehVolM3 * 100) : 0;
+
+    var note = assessment.note;
+
+    var stats = [
+      ['Коробок уложено', String(packedCount) + (overflowCount ? ' (+' + overflowCount + ' сверх)' : '')],
+      ['Фактически занято', boxesVolM3.toFixed(3) + ' м³'],
+      ['Реально занято', realUsedM3.toFixed(3) + ' м³ (' + fillPct.toFixed(0) + '%)'],
+      ['Осталось объёма', remainingM3.toFixed(3) + ' м³'],
+      ['Машина (Ш×Д×В)', dims.w + '×' + dims.l + '×' + dims.h + ' мм, ' + vehVolM3.toFixed(2) + ' м³'],
+      ['Использовано высоты', Math.round(usedHeight) + ' / ' + dims.h + ' мм'],
+    ];
+
+    var html = stats.map(function (entry) {
+      return '<div class="stat-card"><strong>' + entry[0] + '</strong><span>' + entry[1] + '</span></div>';
+    }).join('');
+
+    var noteCls = assessment.finalFit ? 'stat-note' : 'stat-note stat-fail';
+    html += '<div class="stat-card ' + noteCls + '"><strong>Итог</strong><span>' + note + '</span></div>';
+
+    root.innerHTML = html;
+  }
+
+  function update3dModel(vehicleName, assessment, veh) {
+    viewer3dState.model = assessment && assessment.previewPlan ? build3DModel(assessment.previewPlan) : null;
+    document.getElementById('preview3dHint').textContent = viewer3dState.model
+      ? 'Показан итоговый план. Тяните мышью, чтобы осмотреть раскладку со всех сторон.'
+      : '3D-схема появится, когда для машины найдётся раскладка.';
+    update3dStats(vehicleName, assessment, veh);
+    draw3DScene();
+  }
+
+  function reset3dView() {
+    viewer3dState.yaw = -1.35;
+    viewer3dState.pitch = 0.25;
+    viewer3dState.zoom = 0.65;
+    draw3DScene();
+  }
+
+  function updateReportBar(items, vehicleEntries) {
+    var bar = document.getElementById('reportBar');
+    if (!bar) return;
+
+    if (!items.length) {
+      bar.innerHTML = '<span class="report-label">Позиции:</span> коробки не выбраны.';
+      return;
+    }
+
+    // Позиции — каждая на отдельной строке
+    var totalQty = 0;
+    var boxesVolMm3 = 0;
+    var posLines = [];
+    for (var i = 0; i < items.length; i++) {
+      posLines.push(items[i].name + ' — ' + items[i].qty + ' шт.');
+      totalQty += items[i].qty;
+      boxesVolMm3 += items[i].l * items[i].w * items[i].h * items[i].qty;
+    }
+    var boxesVolM3 = mm3ToM3(boxesVolMm3);
+
+    // Машины
+    var GAP_PCT = 0.03, WASTE_PCT = 0.12;
+    var realUsedM3 = boxesVolM3 * (1 + GAP_PCT + WASTE_PCT);
+
+    var fitLines = [], nofitLines = [];
+    for (var v = 0; v < vehicleEntries.length; v++) {
+      var ve = vehicleEntries[v];
+      if (!ve.assessment || !ve.veh) continue;
+      var vehVolM3 = getVehicleVolumeM3(ve.veh);
+      var remainingM3 = vehVolM3 - realUsedM3;
+      if (remainingM3 < 0) remainingM3 = 0;
+      var remainPct = vehVolM3 > 0 ? Math.round(remainingM3 / vehVolM3 * 100) : 0;
+      if (ve.assessment.finalFit) {
+        fitLines.push(ve.name + ' — останется ' + remainingM3.toFixed(2) + ' м³ (' + remainPct + '%)');
+      } else {
+        nofitLines.push(ve.name);
+      }
+    }
+
+    var html = '<span class="report-label">Позиции:</span><br>';
+    for (var p = 0; p < posLines.length; p++) {
+      html += posLines[p] + '<br>';
+    }
+    html += 'Всего ' + totalQty + ' шт., объём ' + boxesVolM3.toFixed(3) + ' м³<br>';
+
+    html += '<span class="report-label">Поместятся:</span><br>';
+    if (fitLines.length) {
+      for (var f = 0; f < fitLines.length; f++) {
+        html += '<span class="report-fit">' + fitLines[f] + '</span><br>';
+      }
+    } else {
+      html += '<span class="report-nofit">ни в одну машину</span><br>';
+    }
+    if (nofitLines.length) {
+      html += '<span class="report-label">Не поместятся:</span><br>';
+      for (var n = 0; n < nofitLines.length; n++) {
+        html += '<span class="report-nofit">' + nofitLines[n] + '</span><br>';
+      }
+    }
+
+    bar.innerHTML = html;
+  }
+
+  function init3dViewer() {
+    var canvas = document.getElementById('preview3dCanvas');
+    if (!canvas) return;
+
+    canvas.addEventListener('mousedown', function (event) {
+      viewer3dState.dragging = true;
+      viewer3dState.lastX = event.clientX;
+      viewer3dState.lastY = event.clientY;
+      canvas.classList.add('dragging');
+    });
+
+    window.addEventListener('mouseup', function () {
+      viewer3dState.dragging = false;
+      canvas.classList.remove('dragging');
+    });
+
+    window.addEventListener('mousemove', function (event) {
+      if (!viewer3dState.dragging) return;
+      var dx = event.clientX - viewer3dState.lastX;
+      var dy = event.clientY - viewer3dState.lastY;
+      viewer3dState.lastX = event.clientX;
+      viewer3dState.lastY = event.clientY;
+      viewer3dState.yaw += dx * 0.01;
+      viewer3dState.pitch = Math.max(-1.35, Math.min(1.35, viewer3dState.pitch + dy * 0.01));
+      draw3DScene();
+    });
+
+    canvas.addEventListener('wheel', function (event) {
+      event.preventDefault();
+      viewer3dState.zoom *= event.deltaY > 0 ? 0.92 : 1.08;
+      viewer3dState.zoom = Math.max(0.45, Math.min(2.4, viewer3dState.zoom));
+      draw3DScene();
+    }, { passive: false });
+
+    document.getElementById('reset3dBtn').addEventListener('click', reset3dView);
+    draw3DScene();
+  }
+
+  function renderPreview(vehicleName, assessment) {
+    var empty = document.getElementById('previewEmpty');
+    var layersRoot = document.getElementById('previewLayers');
+
+    if (!assessment || !assessment.previewPlan) {
+      empty.textContent = 'Пока нет данных для визуализации.';
+      layersRoot.innerHTML = '';
+      empty.style.display = 'block';
+      return;
+    }
+
+    empty.style.display = 'none';
+    layersRoot.innerHTML = '';
+  }
+
+  function getVehicleKeyFromRow(tr, index) {
+    return tr.dataset.custom === 'true' ? ('custom:' + index) : ('base:' + (tr.dataset.i || index));
+  }
+
+  function syncPreviewVehicleOptions(vehicleEntries) {
+    var container = document.getElementById('previewVehicleButtons');
+    if (!container) return;
+    var previous = selectedPreviewVehicleKey;
+    var exists = vehicleEntries.some(function (entry) { return entry.key === previous; });
+    selectedPreviewVehicleKey = exists ? previous : (vehicleEntries[0] ? vehicleEntries[0].key : '');
+
+    container.innerHTML = '';
+    for (var i = 0; i < vehicleEntries.length; i++) {
+      (function (entry) {
+        var btn = document.createElement('button');
+        var cls = 'veh-btn';
+        if (entry.assessment) {
+          cls += entry.assessment.finalFit ? ' fit' : ' nofit';
+        }
+        if (entry.key === selectedPreviewVehicleKey) cls += ' active';
+        btn.className = cls;
+        btn.textContent = entry.name;
+        btn.addEventListener('click', function () {
+          selectedPreviewVehicleKey = entry.key;
+          updateDisplay();
+        });
+        container.appendChild(btn);
+      })(vehicleEntries[i]);
+    }
   }
 
   // ─── Данные из формы ────────────────────────────────────────────────────────
 
   function getData() {
     var items = [];
-    var rows = document.querySelectorAll('#boxesBody tr.box-row');
+    var rows = document.querySelectorAll('.boxes-body tr.box-row');
     rows.forEach(function (tr) {
-      var qty = parseInt(tr.querySelector('.qty').value) || 0;
+      if (tr.classList.contains('empty-row')) return;
+      var qtyEl = tr.querySelector('.qty');
+      if (!qtyEl) return;
+      var qty = parseInt(qtyEl.value) || 0;
       if (qty <= 0) return;
       var isCustom = tr.classList.contains('custom-box');
       var l = parseFloat(tr.dataset.l);
       var w = parseFloat(tr.dataset.w);
       var h = parseFloat(tr.dataset.h);
-      if (l > 0 && w > 0 && h > 0) items.push({ l: l, w: w, h: h, qty: qty });
+      if (l > 0 && w > 0 && h > 0) items.push({ l: l, w: w, h: h, qty: qty, name: tr.children[0].textContent.trim() });
     });
     return items;
   }
@@ -273,12 +1382,19 @@
     }
     document.getElementById('totalBoxVol').textContent =
       totalVol > 0 ? mm3ToM3(totalVol).toFixed(4) + ' м³' : '0.00 м³';
-    document.getElementById('totalBoxQty').textContent = totalQty;
+
+    var summary = { finalOk: 0, finalFail: 0 };
+    var previewVehicleName = '';
+    var previewAssessment = null;
+    var previewVeh = null;
+    var vehicleEntries = [];
 
     var vehRows = document.querySelectorAll('#vehBody tr.veh-row');
     for (var ri = 0; ri < vehRows.length; ri++) {
       var tr = vehRows[ri];
       var veh = null;
+      var vehicleKey = getVehicleKeyFromRow(tr, ri);
+      var vehicleName = tr.children[0].textContent.trim().replace('×', '');
 
       if (tr.dataset.custom === 'true') {
         var cl = parseFloat(tr.dataset.l);
@@ -291,53 +1407,82 @@
       }
 
       var tds = tr.children;
-      // колонки: 0=имя 1=L 2=W 3=H 4=объём | 5=статус | 6=статус
+      // колонки: 0=имя 1=L 2=W 3=H 4=объём | 5=проверка | 6=пояснение
       var nd = tds[5].querySelector('.status');
-      var rd = tds[6].querySelector('.status');
+      var noteCell = tds[6];
 
       if (!veh || totalQty === 0) {
-        nd.className = 'status none'; rd.className = 'status none';
+        setStatus(nd, null);
+        noteCell.textContent = totalQty === 0 ? 'Нет выбранных коробок.' : 'Недостаточно данных по машине.';
+        vehicleEntries.push({ key: vehicleKey, name: vehicleName, assessment: null, veh: veh });
         continue;
       }
 
-      // Обычная: фикс. ориентация + −2%, Идеальная: повороты + полный кузов
-      // Определяем зоны кузова: либо одна зона {l,w,h}, либо несколько
-      var zones;
-      if (veh.zones) {
-        zones = veh.zones.slice(); // копируем
-      } else {
-        zones = [{ l: veh.l, w: veh.w, h: veh.h }];
-      }
+      var assessment = getVehicleAssessment(items, veh);
+      setStatus(nd, assessment.finalFit);
+      noteCell.textContent = assessment.note;
 
-      var noRot   = canFitAll(items, zones, true);
-      var withRot = canFitAll(items, zones, false);
-
-      nd.className = 'status ' + (noRot   ? 'ok' : 'fail');
-      rd.className = 'status ' + (withRot ? 'ok' : 'fail');
+      if (assessment.finalFit) summary.finalOk += 1;
+      else summary.finalFail += 1;
+      vehicleEntries.push({ key: vehicleKey, name: vehicleName, assessment: assessment, veh: veh });
     }
 
+    syncPreviewVehicleOptions(vehicleEntries);
+    for (var vi = 0; vi < vehicleEntries.length; vi++) {
+      if (vehicleEntries[vi].key === selectedPreviewVehicleKey) {
+        previewVehicleName = vehicleEntries[vi].name;
+        previewAssessment = vehicleEntries[vi].assessment;
+        previewVeh = vehicleEntries[vi].veh;
+        break;
+      }
+    }
+    if (!previewAssessment && vehicleEntries.length) {
+      previewVehicleName = vehicleEntries[0].name;
+      previewAssessment = vehicleEntries[0].assessment;
+      previewVeh = vehicleEntries[0].veh;
+    }
+
+    renderPreview(previewVehicleName, previewAssessment);
+    update3dModel(previewVehicleName, previewAssessment, previewVeh);
+    updateReportBar(items, vehicleEntries);
+
     // Подсветка строк с выбранными коробками
-    document.querySelectorAll('#boxesBody tr.box-row').forEach(function (btr) {
-      var qv = parseInt(btr.querySelector('.qty').value) || 0;
+    document.querySelectorAll('.boxes-body tr.box-row').forEach(function (btr) {
+      if (btr.classList.contains('empty-row')) {
+        btr.classList.toggle('collapsed-zero', hideZeroBoxRows);
+        return;
+      }
+      var qtyEl = btr.querySelector('.qty');
+      if (!qtyEl) return;
+      var qv = parseInt(qtyEl.value) || 0;
       btr.classList.toggle('active', qv > 0);
+      btr.classList.toggle('collapsed-zero', hideZeroBoxRows && qv === 0);
     });
+
+    var toggleBtn = document.getElementById('toggleZeroBtn');
+    if (toggleBtn) {
+      toggleBtn.textContent = hideZeroBoxRows ? 'Показать все коробки' : 'Свернуть список коробок';
+    }
   }
 
   // ─── Построение таблиц ──────────────────────────────────────────────────────
 
   function build() {
-    var h = '';
+    var half = Math.ceil(boxes.length / 2);
+    var hLeft = '', hRight = '';
     for (var i = 0; i < boxes.length; i++) {
       var b = boxes[i];
-      h += '<tr class="box-row" data-l="' + b.l + '" data-w="' + b.w + '" data-h="' + b.h + '">';
-      h += '<td>' + b.name + '</td><td>' + b.l + '</td><td>' + b.w + '</td><td>' + b.h + '</td>';
-      h += '<td><div class="qty-cell">';
-      h += '<button class="qty-btn minus">−</button>';
-      h += '<input type="number" class="qty" min="0" value="0">';
-      h += '<button class="qty-btn plus">+</button>';
-      h += '</div></td></tr>';
+      var row = '<tr class="box-row" data-l="' + b.l + '" data-w="' + b.w + '" data-h="' + b.h + '">';
+      row += '<td>' + b.name + '</td><td>' + b.l + '</td><td>' + b.w + '</td><td>' + b.h + '</td>';
+      row += '<td><div class="qty-cell">';
+      row += '<button class="qty-btn minus">−</button>';
+      row += '<input type="number" class="qty" min="0" value="0">';
+      row += '<button class="qty-btn plus">+</button>';
+      row += '</div></td></tr>';
+      if (i < half) hLeft += row; else hRight += row;
     }
-    document.getElementById('boxesBody').innerHTML = h;
+    document.getElementById('boxesBodyLeft').innerHTML = hLeft;
+    document.getElementById('boxesBodyRight').innerHTML = hRight;
 
     h = '';
     for (var j = 0; j < vehicles.length; j++) {
@@ -362,7 +1507,7 @@
       h += '<td>' + v.name + '</td><td>' + vl + '</td><td>' + vw + '</td><td>' + vh + '</td>';
       h += '<td>' + volM3 + '</td>';
       h += '<td class="status-col"><div class="status none"></div></td>';
-      h += '<td class="status-col"><div class="status none"></div></td>';
+      h += '<td class="note-col">Нет выбранных коробок.</td>';
       h += '</tr>';
     }
     document.getElementById('vehBody').innerHTML = h;
@@ -384,7 +1529,7 @@
     });
 
     // Изменение вручную
-    document.querySelectorAll('#boxesBody .qty, #vehBody .qty')
+    document.querySelectorAll('.boxes-body .qty, #vehBody .qty')
       .forEach(function (inp) {
         inp.addEventListener('input', updateDisplay);
       });
@@ -425,8 +1570,13 @@
 
     // Сброс
     document.getElementById('resetBtn').addEventListener('click', function () {
-      document.querySelectorAll('#boxesBody .qty').forEach(function (inp) { inp.value = 0; });
+      document.querySelectorAll('.boxes-body .qty').forEach(function (inp) { inp.value = 0; });
       document.querySelectorAll('#vehBody .qty').forEach(function (inp) { inp.value = 0; });
+      updateDisplay();
+    });
+
+    document.getElementById('toggleZeroBtn').addEventListener('click', function () {
+      hideZeroBoxRows = !hideZeroBoxRows;
       updateDisplay();
     });
 
@@ -435,7 +1585,9 @@
   }
 
   function renderCustomBoxes() {
-    document.querySelectorAll('#boxesBody tr.custom-box').forEach(function (tr) { tr.remove(); });
+    document.querySelectorAll('.boxes-body tr.custom-box').forEach(function (tr) { tr.remove(); });
+
+    var rightBody = document.getElementById('boxesBodyRight');
 
     for (var i = 0; i < customBoxes.length; i++) {
       var cb = customBoxes[i];
@@ -485,7 +1637,7 @@
         });
       })(i, tr);
 
-      document.getElementById('boxesBody').appendChild(tr);
+      rightBody.appendChild(tr);
     }
   }
 
@@ -505,7 +1657,7 @@
         '<td><div style="display:flex;align-items:center;gap:4px;">' + cv.name + '<button class="inline-del-btn">&times;</button></div></td><td>' + cv.l + '</td><td>' + cv.w + '</td><td>' + cv.h + '</td>' +
         '<td>' + vol + '</td>' +
         '<td class="status-col"><div class="status none"></div></td>' +
-        '<td class="status-col"><div class="status none"></div></td>';
+        '<td class="note-col">Нет выбранных коробок.</td>';
 
       (function (idx, row) {
         row.querySelector('.inline-del-btn').addEventListener('click', function () {
@@ -528,11 +1680,13 @@
   }
 
   function saveToStorage() {
-    localStorage.setItem('bapack_custom', JSON.stringify({ boxes: customBoxes, vehicles: customVehicles }));
+    localStorage.setItem('bapack_custom_v2', JSON.stringify({ boxes: customBoxes, vehicles: customVehicles }));
   }
 
   function loadFromStorage() {
-    var raw = localStorage.getItem('bapack_custom');
+    // Сбросить старые данные от предыдущей версии
+    localStorage.removeItem('bapack_custom');
+    var raw = localStorage.getItem('bapack_custom_v2');
     if (!raw) return;
     try {
       var d = JSON.parse(raw);
@@ -548,10 +1702,12 @@
   }
 
   build();
+  init3dViewer();
   updateDisplay();
 
 })();
 </script>
 
-</body>
-</html>
+
+
+</body></html>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Table, Button, Space, Typography, Popconfirm, message, Tabs, Modal, Select, Input, DatePicker } from "antd";
+import { Table, Button, Space, Typography, Popconfirm, message, Tabs, Modal, Select, Input, DatePicker, Switch } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import { Link } from "react-router-dom";
 import dayjs from "dayjs";
@@ -24,6 +24,7 @@ type Task = {
 
 type ProjectOption = { id: string; code?: string; name: string };
 type UserOption = { id: string; firstName: string; roles?: string[] };
+type TaskStatus = { id: string; name: string; code: string };
 type TaskComment = { id: string; taskId: string; authorName: string; body: string; number: number; createdAt: string };
 
 const STATUS_ORDER: Record<string, number> = {
@@ -57,6 +58,9 @@ export function TaskList() {
   const [newTaskProjectId, setNewTaskProjectId] = useState<string>("");
   const [newTaskStatusId, setNewTaskStatusId] = useState<string>("");
   const [newTaskAssigneeId, setNewTaskAssigneeId] = useState<string>("");
+  const [newTaskInProgress, setNewTaskInProgress] = useState(false);
+  const [inProgressStatusId, setInProgressStatusId] = useState<string>("");
+  const [todoStatusId, setTodoStatusId] = useState<string>("");
   const [creating, setCreating] = useState(false);
 
   const [commentModalOpen, setCommentModalOpen] = useState(false);
@@ -151,8 +155,11 @@ export function TaskList() {
 
   async function handleProjectChange(projectId: string) {
     setNewTaskProjectId(projectId);
+    setNewTaskInProgress(false);
     if (!projectId) {
       setNewTaskStatusId("");
+      setTodoStatusId("");
+      setInProgressStatusId("");
       return;
     }
     try {
@@ -160,11 +167,20 @@ export function TaskList() {
         `query ($id: ID!) { project(id: $id) { statuses { id name code } } }`,
         { id: projectId }
       );
-      const todoStatus = (res.project?.statuses ?? []).find((s) => s.code === "todo");
+      const statuses = res.project?.statuses ?? [];
+      const todoStatus = statuses.find((s) => s.code === "todo");
+      const inProgressStatus = statuses.find((s) => s.code === "in_progress");
       if (todoStatus) {
+        setTodoStatusId(todoStatus.id);
         setNewTaskStatusId(todoStatus.id);
       } else {
+        setTodoStatusId("");
         message.error("У проекта нет статуса «К выполнению»");
+      }
+      if (inProgressStatus) {
+        setInProgressStatusId(inProgressStatus.id);
+      } else {
+        setInProgressStatusId("");
       }
     } catch {
       message.error("Не удалось загрузить статусы проекта");
@@ -190,6 +206,15 @@ export function TaskList() {
       message.error(`Не удалось добавить комментарий${detail ? `: ${detail}` : ""}`);
     } finally {
       setSavingComment(false);
+    }
+  }
+
+  function handleToggleInProgress(checked: boolean) {
+    setNewTaskInProgress(checked);
+    if (checked && inProgressStatusId) {
+      setNewTaskStatusId(inProgressStatusId);
+    } else if (!checked && todoStatusId) {
+      setNewTaskStatusId(todoStatusId);
     }
   }
 
@@ -221,6 +246,7 @@ export function TaskList() {
       setNewTaskProjectId("");
       setNewTaskStatusId("");
       setNewTaskAssigneeId("");
+      setNewTaskInProgress(false);
 
       await fetchTasks();
     } catch (err: any) {
@@ -461,6 +487,7 @@ export function TaskList() {
           setNewTaskProjectId("");
           setNewTaskStatusId("");
           setNewTaskAssigneeId("");
+          setNewTaskInProgress(false);
         }}
         okButtonProps={{ disabled: !newTaskTitle.trim() || !newTaskProjectId || !newTaskStatusId, loading: creating }}
         okText="Создать"
@@ -505,6 +532,15 @@ export function TaskList() {
                 value: u.id,
               }))}
             />
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Switch
+              checked={newTaskInProgress}
+              onChange={handleToggleInProgress}
+              disabled={!newTaskProjectId || (!inProgressStatusId && !todoStatusId)}
+            />
+            <Text>{newTaskInProgress ? "В работе" : "К выполнению"}</Text>
           </div>
         </div>
       </Modal>

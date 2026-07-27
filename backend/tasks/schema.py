@@ -2,24 +2,17 @@
 from __future__ import annotations
 
 import datetime
-import typing
-from concurrent.futures import ThreadPoolExecutor
 
 import strawberry
 import strawberry_django
+from asgiref.sync import sync_to_async
 from strawberry import auto
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Case, When, Value, IntegerField, BooleanField, Q, ExpressionWrapper
 
 from accounts.schema import UserType
 from projects.models import Project
 
 from .models import Task, TaskDependency, TaskStatus, TaskAssignment, Comment
-
-_executor = ThreadPoolExecutor(max_workers=8)
-
-
-def _run_sync(func, *args):
-    return _executor.submit(func, *args).result()
 
 
 @strawberry_django.type(TaskStatus)
@@ -93,11 +86,17 @@ class TaskType:
 
     @strawberry.field
     def assignees(self, root: Task) -> list[UserType]:
-        return [a.user for a in TaskAssignment.objects.filter(task=root).select_related("user")]
+        assignments = getattr(root, "_assignments_prefetch", None)
+        if assignments is None:
+            assignments = TaskAssignment.objects.filter(task=root).select_related("user")
+        return [a.user for a in assignments]
 
     @strawberry.field
     def assignee_ids(self, root: Task) -> list[str]:
-        return list(TaskAssignment.objects.filter(task=root).values_list("user_id", flat=True))
+        assignments = getattr(root, "_assignments_prefetch", None)
+        if assignments is None:
+            return list(TaskAssignment.objects.filter(task=root).values_list("user_id", flat=True))
+        return [str(a.user_id) for a in assignments]
 
     @strawberry.field
     def project_id(self) -> strawberry.ID:
@@ -109,6 +108,10 @@ class TaskType:
 
     @strawberry.field
     def risk_level(self) -> int:
+        # Проверяем аннотированное значение, если есть, иначе вычисляем в Python
+        annotated = getattr(self, "_risk_level_annotated", None)
+        if annotated is not None:
+            return annotated
         if self.status_id is None or self.status_id == 0:
             return 0
         if self.status.code in {"done", "cancelled"}:
@@ -131,6 +134,9 @@ class TaskType:
 
     @strawberry.field
     def is_overdue(self) -> bool:
+        annotated = getattr(self, "_is_overdue_annotated", None)
+        if annotated is not None:
+            return annotated
         if self.status_id is None or self.status_id == 0:
             return False
         if self.status.code in {"done", "cancelled"}:
@@ -139,11 +145,10 @@ class TaskType:
 
     @strawberry.field
     def dependencies(self, root: Task) -> list[TaskDependencyType]:
-        return list(
-            TaskDependency.objects.filter(successor=root)
-            .select_related("predecessor", "successor")
-            .order_by("id")
-        )
+        deps = getattr(root, "_dependencies_prefetch", None)
+        if deps is None:
+            deps = TaskDependency.objects.filter(successor=root)
+        return list(deps.select_related("predecessor", "successor").order_by("id"))
 
 @strawberry.input
 class CreateCommentInput:
@@ -204,22 +209,44 @@ class BacklogTaskItem:
     created_at: datetime.datetime | None = None
 
 
+def _annotate_task_queryset(qs):
+    """Add Prefetch for assignments/dependencies and annotate computed fields."""
+    from django.db.models.functions import Now
+    return qs.select_related("status", "assignee", "assignee__department", "reporter", "reporter__department").prefetch_related(
+        Prefetch(
+            "taskassignment_set",
+            queryset=TaskAssignment.objects.select_related("user"),
+            to_attr="_assignments_prefetch",
+        ),
+        Prefetch(
+            "successors",
+            queryset=TaskDependency.objects.select_related("predecessor", "successor"),
+            to_attr="_dependencies_prefetch",
+        ),
+    ).annotate(
+        _is_overdue_annotated=Case(
+            When(
+                Q(status__code__in=["done", "cancelled"])
+                | Q(planned_end__isnull=True)
+                | Q(status_id__isnull=True)
+                | Q(status_id=0),
+                then=Value(False),
+            ),
+            default=ExpressionWrapper(Q(planned_end__lt=Now()), output_field=BooleanField()),
+            output_field=BooleanField(),
+        ),
+    )
+
+
 @strawberry.type
 class TasksQuery:
     @strawberry_django.field
     def tasks(self, project_id: strawberry.ID) -> list[TaskType]:
-        return (
-            Task.objects.filter(project_id=project_id)
-            .select_related("status", "assignee", "assignee__department", "reporter", "reporter__department")
-        )
+        return _annotate_task_queryset(Task.objects.filter(project_id=project_id))
 
     @strawberry_django.field
     def task(self, id: strawberry.ID) -> TaskType | None:
-        return (
-            Task.objects.filter(pk=id)
-            .select_related("status", "assignee", "assignee__department", "reporter", "reporter__department")
-            .first()
-        )
+        return _annotate_task_queryset(Task.objects.filter(pk=id)).first()
 
     @strawberry_django.field
     def gantt_data(self, project_id: strawberry.ID) -> list[TaskType]:
@@ -227,7 +254,15 @@ class TasksQuery:
             Task.objects.filter(project_id=project_id)
             .exclude(status__is_cancelled=True)
             .select_related("status", "assignee", "assignee__department")
-            .prefetch_related("dependencies__predecessor", "dependencies__successor")
+            .prefetch_related(
+                Prefetch(
+                    "taskassignment_set",
+                    queryset=TaskAssignment.objects.select_related("user"),
+                    to_attr="_assignments_prefetch",
+                ),
+                "dependencies__predecessor",
+                "dependencies__successor",
+            )
             .distinct()
         )
 
@@ -275,80 +310,56 @@ class TasksQuery:
 @strawberry.type
 class TasksMutation:
     @strawberry.mutation
-    def create_task(self, info: strawberry.types.Info, input: CreateTaskInput) -> TaskType:
-        return _run_sync(_create_task_sync, info, input)
+    async def create_task(self, info: strawberry.types.Info, input: CreateTaskInput) -> TaskType:
+        return await sync_to_async(_create_task_sync, thread_sensitive=True)(info, input)
 
     @strawberry.mutation
-    def update_task(
+    async def update_task(
         self, info: strawberry.types.Info, id: strawberry.ID, input: UpdateTaskInput
     ) -> TaskType:
-        return _run_sync(_update_task_sync, info, id, input)
+        return await sync_to_async(_update_task_sync, thread_sensitive=True)(info, id, input)
 
     @strawberry.mutation
-    def move_task(
+    async def move_task(
         self,
         info: strawberry.types.Info,
         task_id: strawberry.ID,
         status_id: strawberry.ID,
         board_order: float,
     ) -> TaskType:
-        return _run_sync(_move_task_sync, info, task_id, status_id, board_order)
+        return await sync_to_async(_move_task_sync, thread_sensitive=True)(info, task_id, status_id, board_order)
 
     @strawberry.mutation
-    def delete_task(
+    async def delete_task(
         self,
         info: strawberry.types.Info,
         id: strawberry.ID,
     ) -> bool:
-        return _run_sync(_delete_task_sync, info, id)
+        return await sync_to_async(_delete_task_sync, thread_sensitive=True)(info, id)
 
     @strawberry.mutation
-    def add_task_assignee(self, info: strawberry.types.Info, task_id: strawberry.ID, user_id: strawberry.ID) -> bool:
-        from audit.models import AuditLog
-
-        try:
-            task = Task.objects.get(pk=task_id)
-            user = info.context.request.user
-            TaskAssignment.objects.get_or_create(task=task, user_id=user_id)
-            AuditLog.log(actor=user, action="task.add_assignee", resource_type="task", resource_id=str(task_id), payload={"user_id": str(user_id)}, request=info.context.request)
-            return True
-        except Task.DoesNotExist:
-            raise Exception("Task not found")
+    async def add_task_assignee(self, info: strawberry.types.Info, task_id: strawberry.ID, user_id: strawberry.ID) -> bool:
+        return await sync_to_async(_add_assignee_sync, thread_sensitive=True)(info, task_id, user_id)
 
     @strawberry.mutation
-    def remove_task_assignee(self, info: strawberry.types.Info, task_id: strawberry.ID, user_id: strawberry.ID) -> bool:
-        from audit.models import AuditLog
-
-        deleted, _ = TaskAssignment.objects.filter(task_id=task_id, user_id=user_id).delete()
-        if deleted:
-            AuditLog.log(actor=info.context.request.user, action="task.remove_assignee", resource_type="task", resource_id=str(task_id), payload={"user_id": str(user_id)}, request=info.context.request)
-        return deleted > 0
+    async def remove_task_assignee(self, info: strawberry.types.Info, task_id: strawberry.ID, user_id: strawberry.ID) -> bool:
+        return await sync_to_async(_remove_assignee_sync, thread_sensitive=True)(info, task_id, user_id)
 
     @strawberry.mutation
-    def set_task_assignees(self, info: strawberry.types.Info, task_id: strawberry.ID, user_ids: list[strawberry.ID]) -> bool:
-        from audit.models import AuditLog
-
-        try:
-            task = Task.objects.get(pk=task_id)
-        except Task.DoesNotExist:
-            raise Exception("Task not found")
-        TaskAssignment.objects.filter(task=task).delete()
-        for uid in user_ids:
-            TaskAssignment.objects.create(task=task, user_id=uid)
-        AuditLog.log(actor=info.context.request.user, action="task.set_assignees", resource_type="task", resource_id=str(task_id), payload={"user_ids": [str(u) for u in user_ids]}, request=info.context.request)
-        return True
+    async def set_task_assignees(self, info: strawberry.types.Info, task_id: strawberry.ID, user_ids: list[strawberry.ID]) -> bool:
+        return await sync_to_async(_set_assignees_sync, thread_sensitive=True)(info, task_id, user_ids)
 
     @strawberry.mutation
-    def create_comment(self, info: strawberry.types.Info, input: CreateCommentInput) -> CommentType:
-        return _run_sync(_create_comment_sync, info, input)
+    async def create_comment(self, info: strawberry.types.Info, input: CreateCommentInput) -> CommentType:
+        return await sync_to_async(_create_comment_sync, thread_sensitive=True)(info, input)
 
     @strawberry.mutation
-    def update_comment(self, info: strawberry.types.Info, input: UpdateCommentInput) -> CommentType:
-        return _run_sync(_update_comment_sync, info, input)
+    async def update_comment(self, info: strawberry.types.Info, input: UpdateCommentInput) -> CommentType:
+        return await sync_to_async(_update_comment_sync, thread_sensitive=True)(info, input)
 
     @strawberry.mutation
-    def delete_comment(self, info: strawberry.types.Info, id: strawberry.ID) -> bool:
-        return _run_sync(_delete_comment_sync, info, id)
+    async def delete_comment(self, info: strawberry.types.Info, id: strawberry.ID) -> bool:
+        return await sync_to_async(_delete_comment_sync, thread_sensitive=True)(info, id)
 
 
 def _create_task_sync(info: strawberry.types.Info, input: CreateTaskInput) -> TaskType:
@@ -405,7 +416,11 @@ def _update_task_sync(
 
     task = Task.objects.select_related("project").get(pk=id)
     require_project_member(info, project_id=str(task.project_id))
-    changes = {k: v for k, v in strawberry.asdict(input).items() if v is not None}
+    changes = {}
+    for field in strawberry.fields(UpdateTaskInput):
+        value = getattr(input, field.name)
+        if value is not strawberry.UNSET:
+            changes[field.name] = value
     for field, value in changes.items():
         setattr(task, field, value)
     task.save()
@@ -468,6 +483,43 @@ def _delete_task_sync(
         payload={"code": task_code, "project_id": project_id_str},
         request=info.context.request,
     )
+    return True
+
+
+def _add_assignee_sync(info: strawberry.types.Info, task_id: strawberry.ID, user_id: strawberry.ID) -> bool:
+    from permissions.helpers import require_project_member
+    from audit.models import AuditLog
+
+    task = Task.objects.select_related("project").get(pk=task_id)
+    require_project_member(info, project_id=str(task.project_id))
+    user = info.context.request.user
+    TaskAssignment.objects.get_or_create(task=task, user_id=user_id)
+    AuditLog.log(actor=user, action="task.add_assignee", resource_type="task", resource_id=str(task_id), payload={"user_id": str(user_id)}, request=info.context.request)
+    return True
+
+
+def _remove_assignee_sync(info: strawberry.types.Info, task_id: strawberry.ID, user_id: strawberry.ID) -> bool:
+    from permissions.helpers import require_project_member
+    from audit.models import AuditLog
+
+    task = Task.objects.select_related("project").get(pk=task_id)
+    require_project_member(info, project_id=str(task.project_id))
+    deleted, _ = TaskAssignment.objects.filter(task_id=task_id, user_id=user_id).delete()
+    if deleted:
+        AuditLog.log(actor=info.context.request.user, action="task.remove_assignee", resource_type="task", resource_id=str(task_id), payload={"user_id": str(user_id)}, request=info.context.request)
+    return deleted > 0
+
+
+def _set_assignees_sync(info: strawberry.types.Info, task_id: strawberry.ID, user_ids: list[strawberry.ID]) -> bool:
+    from permissions.helpers import require_project_member
+    from audit.models import AuditLog
+
+    task = Task.objects.select_related("project").get(pk=task_id)
+    require_project_member(info, project_id=str(task.project_id))
+    TaskAssignment.objects.filter(task=task).delete()
+    for uid in user_ids:
+        TaskAssignment.objects.create(task=task, user_id=uid)
+    AuditLog.log(actor=info.context.request.user, action="task.set_assignees", resource_type="task", resource_id=str(task_id), payload={"user_ids": [str(u) for u in user_ids]}, request=info.context.request)
     return True
 
 

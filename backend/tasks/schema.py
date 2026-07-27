@@ -352,7 +352,7 @@ class TasksMutation:
 
 
 def _create_task_sync(info: strawberry.types.Info, input: CreateTaskInput) -> TaskType:
-    from django.db import transaction
+    from django.db import transaction, IntegrityError
     from permissions.helpers import require_project_member
     from audit.models import AuditLog
 
@@ -372,8 +372,20 @@ def _create_task_sync(info: strawberry.types.Info, input: CreateTaskInput) -> Ta
             estimated_hours=input.estimated_hours,
             reporter=info.context.request.user,
         )
-        task.code = task.generate_code()
-        task.save()
+        # Retry loop to handle race conditions on code generation
+        for _ in range(10):
+            task.code = task.generate_code()
+            try:
+                task.save()
+                break
+            except IntegrityError as e:
+                if "unique constraint" in str(e).lower() and "code" in str(e).lower():
+                    # Code collision — retry with next available code
+                    continue
+                raise
+        else:
+            raise Exception("Не удалось сгенерировать уникальный код задачи. Попробуйте ещё раз.")
+
         AuditLog.log(
             actor=info.context.request.user,
             action="task.create",
